@@ -94,6 +94,7 @@ public class TankWebSocketHandler extends TextWebSocketHandler {
 
             if ("player_move".equals(type)) {
                 handlePlayerMove(roomId, player, msgMap);
+                return;
             } else if ("fire_bullet".equals(type)) {
                 String bulletId = (String) msgMap.get("bulletId");
                 double x = ((Number) msgMap.get("x")).doubleValue();

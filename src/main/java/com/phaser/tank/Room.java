@@ -18,13 +18,15 @@ public class Room {
         String id;
         double x;
         double y;
-        int angle; // 0, 90, 180, 270 degrees
-        double speed = 5; // tiles per tick (adjust as needed)
+        int angle;
+        double speed = 1;
         boolean destroyed = false;
 
-        // direction vector
         double dx;
         double dy;
+
+        int tickCount = 0; // track number of moves
+        static final int MAX_TICKS = 27; // limit to avoid infinite travel
 
         Bullet(String id, double x, double y, int angle) {
             this.id = id;
@@ -32,33 +34,21 @@ public class Room {
             this.y = y;
             this.angle = angle;
             switch (angle) {
-                case 0 -> {
-                    dx = 0;
-                    dy = -1;
-                }
-                case 90 -> {
-                    dx = 1;
-                    dy = 0;
-                }
-                case 180 -> {
-                    dx = 0;
-                    dy = 1;
-                }
-                case 270 -> {
-                    dx = -1;
-                    dy = 0;
-                }
-                default -> {
-                    dx = 0;
-                    dy = -1;
-                }
+                case 0 -> { dx = 0; dy = -TILE_SIZE; }
+                case 90 -> { dx = TILE_SIZE; dy = 0; }
+                case 180 -> { dx = 0; dy = TILE_SIZE; }
+                case 270 -> { dx = -TILE_SIZE; dy = 0; }
+                default -> { dx = 0; dy = -TILE_SIZE; }
             }
         }
 
-        // Move bullet position by speed in direction
         void move() {
             x += dx * speed;
             y += dy * speed;
+            tickCount++;
+            if (tickCount > MAX_TICKS) {
+                destroyed = true;
+            }
         }
     }
 
@@ -244,20 +234,18 @@ public class Room {
         if (player == null) return;
 
         player.setAngle(newAngle);
-
         if (canMove(newX, newY)) {
             // Valid move: update position and angle
             player.setX(newX);
             player.setY(newY);
         }   // Broadcast to all players
-            broadcast(Map.of(
-                    "type", "player_move",
-                    "playerNumber", player.getPlayerNumber(),
-                    "x", player.getX(),
-                    "y", player.getY(),
-                    "angle", player.getAngle()
-            ));
-        System.out.println(player);
+        broadcast(Map.of(
+                "type", "player_move",
+                "playerNumber", player.getPlayerNumber(),
+                "x", player.getX(),
+                "y", player.getY(),
+                "angle", player.getAngle()
+        ));
     }
 
     // Send message to all players except optional excludeSession (nullable)
