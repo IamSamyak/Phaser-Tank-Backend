@@ -6,36 +6,41 @@ import org.springframework.web.socket.WebSocketSession;
 import com.phaser.tank.util.MovementValidator;
 
 import java.util.*;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 public class Room {
 
     private final String roomId;
-    private final List<PlayerInfo> players = new CopyOnWriteArrayList<>();
+    private final PlayerManager playerManager = new PlayerManager();
     private List<String> levelMap;
 
     private final BulletManager bulletManager;
+    private final BonusManager bonusManager;
     private final ObjectMapper mapper = new ObjectMapper();
 
     public Room(String roomId) {
         this.roomId = roomId;
         this.bulletManager = new BulletManager(this);
+        this.bonusManager = new BonusManager(this);
     }
 
     public void addPlayer(PlayerInfo player) {
-        players.add(player);
+        playerManager.addPlayer(player);
+
+        if (playerManager.getPlayerCount() == 2) {
+            bonusManager.spawnBonus();
+        }
     }
 
     public void removePlayer(WebSocketSession session) {
-        players.removeIf(p -> p.getSession().equals(session));
+        playerManager.removePlayer(session);
     }
 
     public int playerCount() {
-        return players.size();
+        return playerManager.getPlayerCount();
     }
 
     public List<PlayerInfo> getPlayers() {
-        return players;
+        return playerManager.getPlayers();
     }
 
     public String getRoomId() {
@@ -85,11 +90,7 @@ public class Room {
     }
 
     public void handlePlayerMove(WebSocketSession session, double newX, double newY, int newAngle) {
-        PlayerInfo player = players.stream()
-                .filter(p -> p.getSession().equals(session))
-                .findFirst()
-                .orElse(null);
-
+        PlayerInfo player = playerManager.getPlayerBySession(session);
         if (player == null) return;
 
         player.setAngle(newAngle);
@@ -97,6 +98,9 @@ public class Room {
             player.setX(newX);
             player.setY(newY);
         }
+
+        // Check for bonus collision after position update
+        bonusManager.checkBonusCollision(player);
 
         broadcast(Map.of(
                 "type", "player_move",
@@ -110,7 +114,7 @@ public class Room {
     public void broadcast(Map<String, Object> msg) {
         try {
             String json = mapper.writeValueAsString(msg);
-            for (PlayerInfo player : players) {
+            for (PlayerInfo player : playerManager.getPlayers()) {
                 WebSocketSession session = player.getSession();
                 if (session.isOpen()) {
                     session.sendMessage(new TextMessage(json));
