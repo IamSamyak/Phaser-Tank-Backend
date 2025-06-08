@@ -32,11 +32,26 @@ public class Room {
             this.y = y;
             this.angle = angle;
             switch (angle) {
-                case 0 -> { dx = 0; dy = -1; }
-                case 90 -> { dx = 1; dy = 0; }
-                case 180 -> { dx = 0; dy = 1; }
-                case 270 -> { dx = -1; dy = 0; }
-                default -> { dx = 0; dy = -1; }
+                case 0 -> {
+                    dx = 0;
+                    dy = -1;
+                }
+                case 90 -> {
+                    dx = 1;
+                    dy = 0;
+                }
+                case 180 -> {
+                    dx = 0;
+                    dy = 1;
+                }
+                case 270 -> {
+                    dx = -1;
+                    dy = 0;
+                }
+                default -> {
+                    dx = 0;
+                    dy = -1;
+                }
             }
         }
 
@@ -51,6 +66,8 @@ public class Room {
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
     private final ObjectMapper mapper = new ObjectMapper();
+
+    private static final int TILE_SIZE = 32;
 
     public Room(String roomId) {
         this.roomId = roomId;
@@ -128,7 +145,6 @@ public class Room {
 
             bullet.move();
 
-            // Check collisions or out of bounds here (simple example):
             if (isCollision(bullet.x, bullet.y) || isOutOfBounds(bullet.x, bullet.y)) {
                 bullet.destroyed = true;
             }
@@ -150,19 +166,98 @@ public class Room {
         }
     }
 
-    // Simple collision check (can be enhanced)
+    // Check collision with blocking tiles for bullet
     private boolean isCollision(double x, double y) {
-        int tileX = (int) Math.floor(x);
-        int tileY = (int) Math.floor(y);
+        int tileX = (int) (x / TILE_SIZE);
+        int tileY = (int) (y / TILE_SIZE);
 
         char tile = getTile(tileX, tileY);
         return tile == '#' || tile == '@'; // example: brick or stone blocks bullet
     }
 
-    // Simple boundary check
+    // Boundary check
     private boolean isOutOfBounds(double x, double y) {
         if (levelMap == null) return true;
-        return x < 0 || y < 0 || y >= levelMap.size() || x >= levelMap.get(0).length();
+        return x < 0 || y < 0 || y >= levelMap.size() * TILE_SIZE || x >= levelMap.get(0).length() * TILE_SIZE;
+    }
+
+    // --- Movement logic moved to backend ---
+
+    private static final int TANK_SIZE = TILE_SIZE; // Assuming tank occupies 1 tile square
+
+    // Check if tank can move to x,y position (in pixels)
+    public boolean canMove(double x, double y) {
+        // Check all 4 corners of tank
+        int half = TANK_SIZE / 2;
+
+        // corners in tile coords
+        int topLeftRow = (int) Math.floor((y - half) / TILE_SIZE);
+        int topLeftCol = (int) Math.floor((x - half) / TILE_SIZE);
+
+        int topRightRow = topLeftRow;
+        int topRightCol = (int) Math.floor((x + half - 1) / TILE_SIZE);
+
+        int bottomLeftRow = (int) Math.floor((y + half - 1) / TILE_SIZE);
+        int bottomLeftCol = topLeftCol;
+
+        int bottomRightRow = bottomLeftRow;
+        int bottomRightCol = topRightCol;
+
+        return isWalkable(topLeftRow, topLeftCol) &&
+                isWalkable(topRightRow, topRightCol) &&
+                isWalkable(bottomLeftRow, bottomLeftCol) &&
+                isWalkable(bottomRightRow, bottomRightCol);
+    }
+
+    private boolean isWalkable(int row, int col) {
+        if (!isWithinMapBounds(row, col)) return false;
+        char tileChar = getTile(col, row);
+        String type = tileMapping(tileChar);
+        return "empty".equals(type) || "bush".equals(type);
+    }
+
+    private boolean isWithinMapBounds(int row, int col) {
+        return levelMap != null && row >= 0 && row < levelMap.size()
+                && col >= 0 && col < levelMap.get(0).length();
+    }
+
+    private String tileMapping(char tileChar) {
+        return switch (tileChar) {
+            case '.' -> "empty";
+            case '#' -> "brick";
+            case '@' -> "stone";
+            case '%' -> "bush";
+            case '~' -> "water";
+            case '-' -> "ice";
+            default -> "unknown";
+        };
+    }
+
+    // Handle move command from client
+    public void handlePlayerMove(WebSocketSession session, double newX, double newY, int newAngle) {
+        // Find player
+        PlayerInfo player = players.stream()
+                .filter(p -> p.getSession().equals(session))
+                .findFirst()
+                .orElse(null);
+
+        if (player == null) return;
+
+        player.setAngle(newAngle);
+
+        if (canMove(newX, newY)) {
+            // Valid move: update position and angle
+            player.setX(newX);
+            player.setY(newY);
+        }   // Broadcast to all players
+            broadcast(Map.of(
+                    "type", "player_move",
+                    "playerNumber", player.getPlayerNumber(),
+                    "x", player.getX(),
+                    "y", player.getY(),
+                    "angle", player.getAngle()
+            ));
+        System.out.println(player);
     }
 
     // Send message to all players except optional excludeSession (nullable)

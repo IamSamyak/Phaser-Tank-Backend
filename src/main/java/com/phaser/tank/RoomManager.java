@@ -67,7 +67,9 @@ public class RoomManager {
             for (PlayerInfo player : room.getPlayers()) {
                 if (!player.getSession().equals(exclude)) {
                     try {
-                        player.getSession().sendMessage(message);
+                        if (player.getSession().isOpen()) {
+                            player.getSession().sendMessage(message);
+                        }
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
@@ -91,6 +93,7 @@ public class RoomManager {
             if (room != null) {
                 room.removePlayer(session);
                 if (room.playerCount() == 0) {
+                    // Shutdown room resources like bullet scheduler if needed
                     rooms.remove(roomId);
                 }
             }
@@ -101,7 +104,6 @@ public class RoomManager {
         return String.valueOf(new Random().nextInt(9000) + 1000);
     }
 
-    // Loads a level from resources/levels/1.txt
     private List<String> loadLevelMap(String path) {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(
                 Objects.requireNonNull(getClass().getClassLoader().getResourceAsStream(path))))) {

@@ -20,15 +20,15 @@ public class TankWebSocketHandler extends TextWebSocketHandler {
         if (uri.contains("/ws/create")) {
             roomId = roomManager.createRoom(session);
 
-            Room room = roomManager.getRoom(roomId); // get room object
-            List<String> levelMap = room.getLevelMap(); // get level map from room
+            Room room = roomManager.getRoom(roomId);
+            List<String> levelMap = room.getLevelMap();
 
             session.sendMessage(new TextMessage(mapper.writeValueAsString(Map.of(
                     "type", "start",
                     "playerNumber", 1,
                     "roomId", roomId,
-                    "x", 24,
-                    "y", 9,
+                    "x", 10,
+                    "y", 25,
                     "levelMap", levelMap
             ))));
         } else if (uri.contains("/ws/join/")) {
@@ -43,8 +43,8 @@ public class TankWebSocketHandler extends TextWebSocketHandler {
                         "type", "start",
                         "playerNumber", 2,
                         "roomId", roomId,
-                        "x", 24,
-                        "y", 15,
+                        "x", 16,
+                        "y", 25,
                         "levelMap", levelMap
                 ))));
 
@@ -53,8 +53,8 @@ public class TankWebSocketHandler extends TextWebSocketHandler {
                 if (p1 != null) {
                     p1.getSession().sendMessage(new TextMessage(mapper.writeValueAsString(Map.of(
                             "type", "spawn_other",
-                            "x", 24,
-                            "y", 15,
+                            "x", 16,
+                            "y", 25,
                             "playerNumber", 2
                     ))));
                 }
@@ -64,8 +64,8 @@ public class TankWebSocketHandler extends TextWebSocketHandler {
                 if (p2 != null) {
                     p2.getSession().sendMessage(new TextMessage(mapper.writeValueAsString(Map.of(
                             "type", "spawn_other",
-                            "x", 24,
-                            "y", 9,
+                            "x", 10,
+                            "y", 25,
                             "playerNumber", 1
                     ))));
                 }
@@ -90,8 +90,39 @@ public class TankWebSocketHandler extends TextWebSocketHandler {
                 msgMap.put("playerNumber", player.getPlayerNumber());
             }
 
+            String type = (String) msgMap.get("type");
+
+            if ("player_move".equals(type)) {
+                handlePlayerMove(roomId, player, msgMap);
+            } else if ("fire_bullet".equals(type)) {
+                String bulletId = (String) msgMap.get("bulletId");
+                double x = ((Number) msgMap.get("x")).doubleValue();
+                double y = ((Number) msgMap.get("y")).doubleValue();
+                int angle = ((Number) msgMap.get("angle")).intValue();
+
+                Room room = roomManager.getRoom(roomId);
+                if (room != null) {
+                    room.addBullet(bulletId, x, y, angle);
+                }
+            }
+
+            // Broadcast to other players
             String broadcastMsg = mapper.writeValueAsString(msgMap);
             roomManager.broadcast(roomId, new TextMessage(broadcastMsg), session);
+        }
+    }
+
+    private void handlePlayerMove(String roomId, PlayerInfo player, Map<String, Object> msgMap) {
+        if (player == null) return;
+
+        double x = ((Number) msgMap.get("x")).doubleValue();
+        double y = ((Number) msgMap.get("y")).doubleValue();
+        int direction = ((Number) msgMap.get("direction")).intValue();
+
+        Room room = roomManager.getRoom(roomId);
+        if (room != null) {
+            // Correct method call with session, not player number
+            room.handlePlayerMove(player.getSession(), x, y, direction);
         }
     }
 
