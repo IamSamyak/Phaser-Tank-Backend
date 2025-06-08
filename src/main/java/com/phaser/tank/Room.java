@@ -127,15 +127,47 @@ public class Room {
         ));
     }
 
-    // Periodic update to move bullets and broadcast position
     private void updateBullets() {
-        for (Iterator<Map.Entry<String, Bullet>> it = activeBullets.entrySet().iterator(); it.hasNext();) {
+        for (Iterator<Map.Entry<String, Bullet>> it = activeBullets.entrySet().iterator(); it.hasNext(); ) {
             Map.Entry<String, Bullet> entry = it.next();
             Bullet bullet = entry.getValue();
 
             bullet.move();
 
-            if (isCollision(bullet.x, bullet.y) || isOutOfBounds(bullet.x, bullet.y)) {
+            List<int[]> impactTiles = getImpactTiles(bullet.x, bullet.y, bullet.dx, bullet.dy);
+            boolean hit = false;
+
+            for (int[] tilePos : impactTiles) {
+                int row = tilePos[0];
+                int col = tilePos[1];
+                if (!isWithinMapBounds(row, col)) continue;
+
+                char tile = getTile(col, row);
+                if (tile == '#' || tile == '@') {
+                    hit = true;
+
+                    if (tile == '#') { // brick break
+                        updateTile(col, row, '.');
+                        broadcast(Map.of(
+                                "type", "tile_update",
+                                "x", col,
+                                "y", row,
+                                "tile", "."
+                        ));
+                    }
+                }
+            }
+
+            if (hit) {
+                bullet.destroyed = true;
+                broadcast(Map.of(
+                        "type", "explosion",
+                        "x", bullet.x,
+                        "y", bullet.y
+                ));
+            }
+
+            if (isOutOfBounds(bullet.x, bullet.y)) {
                 bullet.destroyed = true;
             }
 
@@ -156,15 +188,40 @@ public class Room {
         }
     }
 
-    // Check collision with blocking tiles for bullet
-    private boolean isCollision(double x, double y) {
+
+    // New collision check for two tiles in front of bullet
+    private List<int[]> getImpactTiles(double x, double y, double dx, double dy) {
         int tileX = (int) (x / TILE_SIZE);
         int tileY = (int) (y / TILE_SIZE);
 
-        char tile = getTile(tileX, tileY);
-        return tile == '#' || tile == '@'; // example: brick or stone blocks bullet
+        List<int[]> impactTiles = new ArrayList<>();
+
+        if (dy != 0) {  // vertical movement
+            int colLeft = (int) ((x - TILE_SIZE / 2.0) / TILE_SIZE);
+            int colRight = (int) ((x + TILE_SIZE / 2.0 - 1) / TILE_SIZE);
+            int row = (int) ((y + dy) / TILE_SIZE);
+            impactTiles.add(new int[]{row, colLeft});
+            impactTiles.add(new int[]{row, colRight});
+        } else if (dx != 0) {  // horizontal movement
+            int rowTop = (int) ((y - TILE_SIZE / 2.0) / TILE_SIZE);
+            int rowBottom = (int) ((y + TILE_SIZE / 2.0 - 1) / TILE_SIZE);
+            int col = (int) ((x + dx) / TILE_SIZE);
+            impactTiles.add(new int[]{rowTop, col});
+            impactTiles.add(new int[]{rowBottom, col});
+        } else {
+            // default fallback, just current tile
+            impactTiles.add(new int[]{tileY, tileX});
+        }
+
+        return impactTiles;
     }
 
+
+    // Helper method to determine if tile blocks bullet
+    private boolean isBlockingTile(int x, int y) {
+        char tile = getTile(x, y);
+        return tile == '#' || tile == '@'; // brick or stone blocks
+    }
     // Boundary check
     private boolean isOutOfBounds(double x, double y) {
         if (levelMap == null) return true;
