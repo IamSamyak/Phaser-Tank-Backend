@@ -1,13 +1,13 @@
-package com.phaser.tank.info;
+package com.phaser.tank.model;
 
 import org.springframework.web.socket.WebSocketSession;
 
-public class PlayerInfo {
+public class Player {
     private final WebSocketSession session;
     private final int playerNumber;
 
-    private double x;
-    private double y;
+    private int x;
+    private int y;
     private int angle;
 
     // Bonus-related attributes
@@ -15,7 +15,7 @@ public class PlayerInfo {
     private int bulletCount = 0;     // Number of bullets fired or active
     private int maxBullets = 1;      // Max allowed bullets on screen
 
-    public PlayerInfo(WebSocketSession session, int playerNumber) {
+    public Player(WebSocketSession session, int playerNumber) {
         this.session = session;
         this.playerNumber = playerNumber;
         this.x = 0;
@@ -31,19 +31,19 @@ public class PlayerInfo {
         return playerNumber;
     }
 
-    public double getX() {
+    public int getX() {
         return x;
     }
 
-    public void setX(double x) {
+    public void setX(int x) {
         this.x = x;
     }
 
-    public double getY() {
+    public int getY() {
         return y;
     }
 
-    public void setY(double y) {
+    public void setY(int y) {
         this.y = y;
     }
 

@@ -1,10 +1,10 @@
-package com.phaser.tank;
+package com.phaser.tank.model;
 
 public class Bullet {
     public final String id;
-    public double x, y;
+    public int x, y;
     public int angle;
-    public double dx, dy;
+    public int dx, dy;
     public double speed = 1;
     public boolean destroyed = false;
 
@@ -12,7 +12,7 @@ public class Bullet {
     private static final int TILE_SIZE = 32;
     private static final int MAX_TICKS = 27;
 
-    public Bullet(String id, double x, double y, int angle) {
+    public Bullet(String id, int x, int y, int angle) {
         this.id = id;
         this.x = x;
         this.y = y;

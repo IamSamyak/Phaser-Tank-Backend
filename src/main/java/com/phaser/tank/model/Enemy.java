@@ -1,13 +1,13 @@
-package com.phaser.tank.info;
+package com.phaser.tank.model;
 
 import java.util.*;
 
-public class EnemyInfo {
+public class Enemy {
     public enum Direction { UP, DOWN, LEFT, RIGHT }
 
     private final String id;
-    private double x;
-    private double y;
+    private int x;
+    private int y;
     private int angle;
     private int health = 1;
 
@@ -18,7 +18,7 @@ public class EnemyInfo {
     private boolean isSpecial = false;
     private Queue<int[]> path = new LinkedList<>();
 
-    public EnemyInfo(String id, double x, double y, int angle) {
+    public Enemy(String id, int x, int y, int angle) {
         this.id = id;
         this.x = x;
         this.y = y;
@@ -29,10 +29,10 @@ public class EnemyInfo {
 
     // Basic getters/setters
     public String getId() { return id; }
-    public double getX() { return x; }
-    public void setX(double x) { this.x = x; }
-    public double getY() { return y; }
-    public void setY(double y) { this.y = y; }
+    public int getX() { return x; }
+    public void setX(int x) { this.x = x; }
+    public int getY() { return y; }
+    public void setY(int y) { this.y = y; }
     public int getAngle() { return angle; }
     public void setAngle(int angle) { this.angle = angle; }
     public int getHealth() { return health; }

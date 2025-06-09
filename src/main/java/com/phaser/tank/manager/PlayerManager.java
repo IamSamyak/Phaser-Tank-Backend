@@ -1,6 +1,6 @@
 package com.phaser.tank.manager;
 
-import com.phaser.tank.info.PlayerInfo;
+import com.phaser.tank.model.Player;
 import org.springframework.web.socket.WebSocketSession;
 
 import java.util.List;
@@ -8,9 +8,9 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 public class PlayerManager {
 
-    private final List<PlayerInfo> players = new CopyOnWriteArrayList<>();
+    private final List<Player> players = new CopyOnWriteArrayList<>();
 
-    public void addPlayer(PlayerInfo player) {
+    public void addPlayer(Player player) {
         players.add(player);
     }
 
@@ -22,11 +22,11 @@ public class PlayerManager {
         return players.size();
     }
 
-    public List<PlayerInfo> getPlayers() {
+    public List<Player> getPlayers() {
         return players;
     }
 
-    public PlayerInfo getPlayerBySession(WebSocketSession session) {
+    public Player getPlayerBySession(WebSocketSession session) {
         return players.stream()
                 .filter(p -> p.getSession().equals(session))
                 .findFirst()

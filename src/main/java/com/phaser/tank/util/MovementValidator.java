@@ -2,21 +2,22 @@ package com.phaser.tank.util;
 
 import java.util.List;
 
+import static com.phaser.tank.util.GameConstants.TILE_SIZE;
+
 public class MovementValidator {
 
-    private static final int TILE_SIZE = TileHelper.TILE_SIZE;
     private static final int TANK_SIZE = TILE_SIZE;
 
-    public static boolean canMove(double x, double y, List<String> levelMap) {
+    public static boolean canMove(int x, int y, List<String> levelMap) {
         int half = TANK_SIZE / 2;
 
-        int topLeftRow = (int) Math.floor((y - half) / TILE_SIZE);
-        int topLeftCol = (int) Math.floor((x - half) / TILE_SIZE);
+        int topLeftRow = (int) Math.floor((double) (y - half) / TILE_SIZE);
+        int topLeftCol = (int) Math.floor((double) (x - half) / TILE_SIZE);
 
         int topRightRow = topLeftRow;
-        int topRightCol = (int) Math.floor((x + half - 1) / TILE_SIZE);
+        int topRightCol = (int) Math.floor((double) (x + half - 1) / TILE_SIZE);
 
-        int bottomLeftRow = (int) Math.floor((y + half - 1) / TILE_SIZE);
+        int bottomLeftRow = (int) Math.floor((double) (y + half - 1) / TILE_SIZE);
         int bottomLeftCol = topLeftCol;
 
         int bottomRightRow = bottomLeftRow;

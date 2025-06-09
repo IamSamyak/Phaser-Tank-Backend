@@ -1,8 +1,11 @@
 package com.phaser.tank.manager;
 
-import com.phaser.tank.Room;
-import com.phaser.tank.info.EnemyInfo;
-import com.phaser.tank.info.EnemyInfo.Direction;
+import com.phaser.tank.model.Room;
+import com.phaser.tank.model.Enemy;
+import com.phaser.tank.model.Enemy.Direction;
+import com.phaser.tank.util.EnemyMovementHelper;
+import com.phaser.tank.util.EnemyPathFinder;
+import com.phaser.tank.util.EnemySpawner;
 import com.phaser.tank.util.MovementValidator;
 
 import java.util.*;
@@ -10,17 +13,12 @@ import java.util.concurrent.*;
 
 public class EnemyManager {
     private final Room room;
-    private final Map<String, EnemyInfo> enemies = new ConcurrentHashMap<>();
+    private final Map<String, Enemy> enemies = new ConcurrentHashMap<>();
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
     private static final int MAX_ENEMIES = 2;
     private boolean movementScheduled = false;
 
     private static final int TILE_SIZE = 32;
-    private static final List<int[]> SPAWN_POINTS = List.of(
-            new int[]{1, 0},
-            new int[]{12, 0},
-            new int[]{24, 0}
-    );
 
     public EnemyManager(Room room) {
         this.room = room;
@@ -34,23 +32,29 @@ public class EnemyManager {
         if (enemies.size() >= MAX_ENEMIES) return;
 
         String enemyId = UUID.randomUUID().toString();
-
-        int[] spawnTile = SPAWN_POINTS.get(new Random().nextInt(SPAWN_POINTS.size()));
-        double spawnX = spawnTile[0] * TILE_SIZE;
-        double spawnY = spawnTile[1] * TILE_SIZE;
-
-        EnemyInfo enemy = new EnemyInfo(enemyId, spawnX, spawnY, 180);
+        Enemy enemy = EnemySpawner.spawnEnemy(enemyId);
         enemies.put(enemyId, enemy);
+
+        int spawnRow = enemy.getY() / TILE_SIZE;
+        int spawnCol = enemy.getX() / TILE_SIZE;
+
+        if (enemies.size() == 1) {
+            int targetRow = 24;
+            int targetCol = 10;
+
+            Queue<int[]> path = EnemyPathFinder.findShortestPath(spawnRow, spawnCol, targetRow, targetCol, room.getLevelMap());
+            enemy.setPath(path);
+            enemy.setSpecial(true);
+        }
 
         room.broadcast(Map.of(
                 "type", "enemy_spawn",
                 "enemyId", enemyId,
-                "x", spawnX,
-                "y", spawnY,
-                "angle", 180
+                "x", enemy.getX(),
+                "y", enemy.getY(),
+                "angle", enemy.getAngle()
         ));
 
-        // Schedule enemy movement only after the first enemy is spawned
         if (!movementScheduled) {
             scheduler.scheduleAtFixedRate(this::moveEnemies, 1, 1, TimeUnit.SECONDS);
             movementScheduled = true;
@@ -62,27 +66,51 @@ public class EnemyManager {
         List<String> levelMap = room.getLevelMap();
         Random random = new Random();
 
-        for (EnemyInfo enemy : enemies.values()) {
-            // FIRST MOVE: assign a random direction regardless of current
-            if (!enemy.hasMoved()) {
-                List<Direction> possibleDirections = new ArrayList<>(List.of(Direction.DOWN, Direction.LEFT, Direction.RIGHT));
-                Direction randomDir = possibleDirections.get(new Random().nextInt(possibleDirections.size()));
-                enemy.setDirection(randomDir);
-                enemy.setAngleFromDirection();
-                enemy.setHasMoved(true);
+        for (Enemy enemy : enemies.values()) {
+            if (enemy.isSpecial()) {
+                Queue<int[]> path = enemy.getPath();
+                if (path != null && !path.isEmpty()) {
+                    int[] nextTile = path.poll();
+                    int nextX = nextTile[1] * TILE_SIZE;
+                    int nextY = nextTile[0] * TILE_SIZE;
 
-                double nextX = enemy.getX();
-                double nextY = enemy.getY();
-
-                switch (randomDir) {
-                    case DOWN -> nextY += TILE_SIZE;
-                    case LEFT -> nextX -= TILE_SIZE;
-                    case RIGHT -> nextX += TILE_SIZE;
-                }
-
-                if (MovementValidator.canMove(nextX, nextY, levelMap)) {
+                    Direction dir = EnemyMovementHelper.getDirection(enemy.getX(), enemy.getY(), nextX, nextY);
                     enemy.setX(nextX);
                     enemy.setY(nextY);
+                    enemy.setDirection(dir);
+                    enemy.setAngleFromDirection();
+
+                    updates.add(Map.of(
+                            "enemyId", enemy.getId(),
+                            "x", enemy.getX(),
+                            "y", enemy.getY(),
+                            "angle", enemy.getAngle()
+                    ));
+                }
+                continue;
+            }
+
+            if (!enemy.hasMoved()) {
+                List<Direction> directionsToCheck = List.of(Direction.DOWN, Direction.LEFT, Direction.RIGHT);
+
+                Direction chosenDir = EnemyMovementHelper.chooseRandomValidDirection(directionsToCheck, enemy.getX(), enemy.getY(), levelMap);
+
+                if (chosenDir != null) {
+                    int[] next = EnemyMovementHelper.getNextPosition(enemy.getX(), enemy.getY(), chosenDir);
+
+                    Direction actualDir = EnemyMovementHelper.getDirection(enemy.getX(), enemy.getY(), next[0], next[1]);
+
+                    enemy.setDirection(actualDir);
+                    enemy.setAngleFromDirection();
+                    enemy.setHasMoved(true);
+                    enemy.setX(next[0]);
+                    enemy.setY(next[1]);
+                } else {
+                    // fallback: keep previous direction or random from directionsToCheck
+                    Direction fallbackDir = directionsToCheck.get(random.nextInt(directionsToCheck.size()));
+                    enemy.setDirection(fallbackDir);
+                    enemy.setAngleFromDirection();
+                    enemy.setHasMoved(true);
                 }
 
                 updates.add(Map.of(
@@ -91,26 +119,16 @@ public class EnemyManager {
                         "y", enemy.getY(),
                         "angle", enemy.getAngle()
                 ));
-
-                continue; // Skip to next enemy
-            }
-            // Subsequent moves — your existing logic
-            double nextX = enemy.getX();
-            double nextY = enemy.getY();
-
-            switch (enemy.getDirection()) {
-                case UP -> nextY -= TILE_SIZE;
-                case DOWN -> nextY += TILE_SIZE;
-                case LEFT -> nextX -= TILE_SIZE;
-                case RIGHT -> nextX += TILE_SIZE;
+                continue;
             }
 
-            boolean canMove = MovementValidator.canMove(nextX, nextY, levelMap);
-            System.out.println("can Move is " + canMove + " nx " + nextX + " ny " + nextY);
+            int[] next = EnemyMovementHelper.getNextPosition(enemy.getX(), enemy.getY(), enemy.getDirection());
+            boolean canMove = MovementValidator.canMove(next[0], next[1], levelMap);
             if (canMove) {
-                enemy.setX(nextX);
-                enemy.setY(nextY);
+                enemy.setX(next[0]);
+                enemy.setY(next[1]);
                 enemy.setAngleFromDirection();
+
                 updates.add(Map.of(
                         "enemyId", enemy.getId(),
                         "x", enemy.getX(),
@@ -118,25 +136,14 @@ public class EnemyManager {
                         "angle", enemy.getAngle()
                 ));
             } else {
-                Direction oldDir = enemy.getDirection();
                 List<Direction> directions = new ArrayList<>(List.of(Direction.values()));
-                Collections.shuffle(directions); // Shuffle directions randomly
+                Collections.shuffle(directions);
 
                 boolean moved = false;
                 for (Direction dir : directions) {
-                    if (dir == oldDir) continue;
-
-                    double tryX = enemy.getX();
-                    double tryY = enemy.getY();
-
-                    switch (dir) {
-                        case UP -> tryY -= TILE_SIZE;
-                        case DOWN -> tryY += TILE_SIZE;
-                        case LEFT -> tryX -= TILE_SIZE;
-                        case RIGHT -> tryX += TILE_SIZE;
-                    }
-
-                    if (MovementValidator.canMove(tryX, tryY, levelMap)) {
+                    if (dir == enemy.getDirection()) continue;
+                    int[] tryPos = EnemyMovementHelper.getNextPosition(enemy.getX(), enemy.getY(), dir);
+                    if (MovementValidator.canMove(tryPos[0], tryPos[1], levelMap)) {
                         enemy.setDirection(dir);
                         enemy.setAngleFromDirection();
                         moved = true;
@@ -145,10 +152,8 @@ public class EnemyManager {
                 }
 
                 if (!moved) {
-                    // No alternative direction found, keep current direction's angle
                     enemy.setAngleFromDirection();
                 }
-                // Will attempt to move next tick
             }
         }
 
@@ -161,7 +166,7 @@ public class EnemyManager {
     }
 
     public void damageEnemy(String id, int amount) {
-        EnemyInfo enemy = enemies.get(id);
+        Enemy enemy = enemies.get(id);
         if (enemy == null) return;
 
         enemy.damage(amount);
@@ -178,7 +183,7 @@ public class EnemyManager {
         scheduler.shutdownNow();
     }
 
-    public Map<String, EnemyInfo> getEnemies() {
+    public Map<String, Enemy> getEnemies() {
         return enemies;
     }
 }

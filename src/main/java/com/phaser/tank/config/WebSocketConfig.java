@@ -1,5 +1,6 @@
-package com.phaser.tank;
+package com.phaser.tank.config;
 
+import com.phaser.tank.handler.TankWebSocketHandler;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.socket.config.annotation.*;
 

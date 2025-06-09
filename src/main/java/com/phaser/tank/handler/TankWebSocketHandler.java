@@ -1,7 +1,8 @@
-package com.phaser.tank;
+package com.phaser.tank.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.phaser.tank.info.PlayerInfo;
+import com.phaser.tank.model.Player;
+import com.phaser.tank.model.Room;
 import com.phaser.tank.manager.RoomManager;
 import org.springframework.web.socket.*;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
@@ -51,7 +52,7 @@ public class TankWebSocketHandler extends TextWebSocketHandler {
                 ))));
 
                 // Notify player 1 about player 2 joining
-                PlayerInfo p1 = roomManager.getPlayer(roomId, 1);
+                Player p1 = roomManager.getPlayer(roomId, 1);
                 if (p1 != null) {
                     p1.getSession().sendMessage(new TextMessage(mapper.writeValueAsString(Map.of(
                             "type", "spawn_other",
@@ -62,7 +63,7 @@ public class TankWebSocketHandler extends TextWebSocketHandler {
                 }
 
                 // Notify player 2 about player 1 position
-                PlayerInfo p2 = roomManager.getPlayer(roomId, 2);
+                Player p2 = roomManager.getPlayer(roomId, 2);
                 if (p2 != null) {
                     p2.getSession().sendMessage(new TextMessage(mapper.writeValueAsString(Map.of(
                             "type", "spawn_other",
@@ -87,7 +88,7 @@ public class TankWebSocketHandler extends TextWebSocketHandler {
         if (roomId != null) {
             Map<String, Object> msgMap = mapper.readValue(message.getPayload(), Map.class);
 
-            PlayerInfo player = roomManager.getPlayerBySession(session);
+            Player player = roomManager.getPlayerBySession(session);
             if (player != null) {
                 msgMap.put("playerNumber", player.getPlayerNumber());
             }
@@ -99,8 +100,8 @@ public class TankWebSocketHandler extends TextWebSocketHandler {
                 return;
             } else if ("fire_bullet".equals(type)) {
                 String bulletId = (String) msgMap.get("bulletId");
-                double x = ((Number) msgMap.get("x")).doubleValue();
-                double y = ((Number) msgMap.get("y")).doubleValue();
+                int x = ((Number) msgMap.get("x")).intValue();
+                int y = ((Number) msgMap.get("y")).intValue();
                 int angle = ((Number) msgMap.get("angle")).intValue();
 
                 Room room = roomManager.getRoom(roomId);
@@ -115,11 +116,11 @@ public class TankWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
-    private void handlePlayerMove(String roomId, PlayerInfo player, Map<String, Object> msgMap) {
+    private void handlePlayerMove(String roomId, Player player, Map<String, Object> msgMap) {
         if (player == null) return;
 
-        double x = ((Number) msgMap.get("x")).doubleValue();
-        double y = ((Number) msgMap.get("y")).doubleValue();
+        int x = ((Number) msgMap.get("x")).intValue();
+        int y = ((Number) msgMap.get("y")).intValue();
         int direction = ((Number) msgMap.get("direction")).intValue();
 
         Room room = roomManager.getRoom(roomId);

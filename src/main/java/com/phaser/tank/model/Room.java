@@ -1,7 +1,6 @@
-package com.phaser.tank;
+package com.phaser.tank.model;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.phaser.tank.info.PlayerInfo;
 import com.phaser.tank.manager.BonusManager;
 import com.phaser.tank.manager.BulletManager;
 import com.phaser.tank.manager.EnemyManager;
@@ -31,7 +30,7 @@ public class Room {
         this.enemyManager = new EnemyManager(this);
     }
 
-    public void addPlayer(PlayerInfo player) {
+    public void addPlayer(Player player) {
         playerManager.addPlayer(player);
 
         if (playerManager.getPlayerCount() == 2) {
@@ -54,7 +53,7 @@ public class Room {
         return playerManager.getPlayerCount();
     }
 
-    public List<PlayerInfo> getPlayers() {
+    public List<Player> getPlayers() {
         return playerManager.getPlayers();
     }
 
@@ -88,7 +87,7 @@ public class Room {
         return row.charAt(x);
     }
 
-    public void addBullet(String bulletId, double x, double y, int angle) {
+    public void addBullet(String bulletId, int x, int y, int angle) {
         bulletManager.addBullet(bulletId, x, y, angle);
     }
 
@@ -104,8 +103,8 @@ public class Room {
         return MovementValidator.isWithinMapBounds(row, col, levelMap);
     }
 
-    public void handlePlayerMove(WebSocketSession session, double newX, double newY, int newAngle) {
-        PlayerInfo player = playerManager.getPlayerBySession(session);
+    public void handlePlayerMove(WebSocketSession session, int newX, int newY, int newAngle) {
+        Player player = playerManager.getPlayerBySession(session);
         if (player == null) return;
 
         player.setAngle(newAngle);
@@ -129,7 +128,7 @@ public class Room {
     public void broadcast(Map<String, Object> msg) {
         try {
             String json = mapper.writeValueAsString(msg);
-            for (PlayerInfo player : playerManager.getPlayers()) {
+            for (Player player : playerManager.getPlayers()) {
                 WebSocketSession session = player.getSession();
                 if (session.isOpen()) {
                     session.sendMessage(new TextMessage(json));

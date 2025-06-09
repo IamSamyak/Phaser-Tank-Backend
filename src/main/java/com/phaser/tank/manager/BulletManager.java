@@ -1,7 +1,8 @@
 package com.phaser.tank.manager;
 
-import com.phaser.tank.Bullet;
-import com.phaser.tank.Room;
+import com.phaser.tank.model.Bullet;
+import com.phaser.tank.model.Room;
+import com.phaser.tank.util.TileHelper;
 
 import java.util.*;
 import java.util.concurrent.*;
@@ -11,14 +12,13 @@ public class BulletManager {
     private final Room room;
     private final Map<String, Bullet> activeBullets = new ConcurrentHashMap<>();
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-    private static final int TILE_SIZE = 32;
 
     public BulletManager(Room room) {
         this.room = room;
         scheduler.scheduleAtFixedRate(this::updateBullets, 50, 50, TimeUnit.MILLISECONDS);
     }
 
-    public void addBullet(String bulletId, double x, double y, int angle) {
+    public void addBullet(String bulletId, int x, int y, int angle) {
         Bullet bullet = new Bullet(bulletId, x, y, angle);
         activeBullets.put(bulletId, bullet);
     }
@@ -32,15 +32,20 @@ public class BulletManager {
     }
 
     private void updateBullets() {
+        List<Map<String, Object>> moveUpdates = new ArrayList<>();
+        List<String> destroyedBullets = new ArrayList<>();
+        List<Map<String, Object>> tileUpdates = new ArrayList<>();
+        List<Map<String, Object>> explosions = new ArrayList<>();
+
         for (Iterator<Map.Entry<String, Bullet>> it = activeBullets.entrySet().iterator(); it.hasNext(); ) {
             Map.Entry<String, Bullet> entry = it.next();
             Bullet bullet = entry.getValue();
 
             bullet.move();
 
-            List<int[]> impactTiles = getImpactTiles(bullet.x, bullet.y, bullet.dx, bullet.dy);
             boolean hit = false;
 
+            List<int[]> impactTiles = TileHelper.getImpactTiles(bullet.x, bullet.y, bullet.dx, bullet.dy);
             for (int[] tilePos : impactTiles) {
                 int row = tilePos[0];
                 int col = tilePos[1];
@@ -51,8 +56,7 @@ public class BulletManager {
                     hit = true;
                     if (tile == '#') {
                         room.updateTile(col, row, '.');
-                        room.broadcast(Map.of(
-                                "type", "tile_update",
+                        tileUpdates.add(Map.of(
                                 "x", col,
                                 "y", row,
                                 "tile", "."
@@ -63,8 +67,7 @@ public class BulletManager {
 
             if (hit) {
                 bullet.destroyed = true;
-                room.broadcast(Map.of(
-                        "type", "explosion",
+                explosions.add(Map.of(
                         "x", bullet.x,
                         "y", bullet.y
                 ));
@@ -76,43 +79,42 @@ public class BulletManager {
 
             if (bullet.destroyed) {
                 it.remove();
-                room.broadcast(Map.of(
-                        "type", "bullet_destroy",
-                        "bulletId", bullet.id
-                ));
+                destroyedBullets.add(bullet.id);
             } else {
-                room.broadcast(Map.of(
-                        "type", "bullet_move",
+                moveUpdates.add(Map.of(
                         "bulletId", bullet.id,
                         "x", bullet.x,
                         "y", bullet.y
                 ));
             }
         }
-    }
 
-    private List<int[]> getImpactTiles(double x, double y, double dx, double dy) {
-        int tileX = (int) (x / TILE_SIZE);
-        int tileY = (int) (y / TILE_SIZE);
-
-        List<int[]> impactTiles = new ArrayList<>();
-
-        if (dy != 0) {
-            int colLeft = (int) ((x - TILE_SIZE / 2.0) / TILE_SIZE);
-            int colRight = (int) ((x + TILE_SIZE / 2.0 - 1) / TILE_SIZE);
-            int row = (int) ((y + dy) / TILE_SIZE);
-            impactTiles.add(new int[]{row, colLeft});
-            impactTiles.add(new int[]{row, colRight});
-        } else if (dx != 0) {
-            int rowTop = (int) ((y - TILE_SIZE / 2.0) / TILE_SIZE);
-            int rowBottom = (int) ((y + TILE_SIZE / 2.0 - 1) / TILE_SIZE);
-            int col = (int) ((x + dx) / TILE_SIZE);
-            impactTiles.add(new int[]{rowTop, col});
-            impactTiles.add(new int[]{rowBottom, col});
-        } else {
-            impactTiles.add(new int[]{tileY, tileX});
+        if (!tileUpdates.isEmpty()) {
+            room.broadcast(Map.of(
+                    "type", "tile_update_batch",
+                    "tiles", tileUpdates
+            ));
         }
 
-        return impactTiles;
+        if (!explosions.isEmpty()) {
+            room.broadcast(Map.of(
+                    "type", "explosion_batch",
+                    "explosions", explosions
+            ));
+        }
+
+        if (!destroyedBullets.isEmpty()) {
+            room.broadcast(Map.of(
+                    "type", "bullet_destroy_batch",
+                    "bulletIds", destroyedBullets
+            ));
+        }
+
+        if (!moveUpdates.isEmpty()) {
+            room.broadcast(Map.of(
+                    "type", "bullet_move_batch",
+                    "bullets", moveUpdates
+            ));
+        }
     }
 }

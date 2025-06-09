@@ -1,7 +1,7 @@
 package com.phaser.tank.manager;
 
-import com.phaser.tank.Room;
-import com.phaser.tank.info.PlayerInfo;
+import com.phaser.tank.model.Room;
+import com.phaser.tank.model.Player;
 import org.springframework.web.socket.*;
 
 import java.io.BufferedReader;
@@ -16,7 +16,7 @@ public class RoomManager {
     public String createRoom(WebSocketSession session) {
         String roomId = generateRoomId();
         Room room = new Room(roomId);
-        room.addPlayer(new PlayerInfo(session, 1));
+        room.addPlayer(new Player(session, 1));
 
         // Load default level into the room
         List<String> levelMap = loadLevelMap("levels/1.txt");
@@ -30,14 +30,14 @@ public class RoomManager {
     public boolean joinRoom(String roomId, WebSocketSession session) {
         Room room = rooms.get(roomId);
         if (room != null && room.playerCount() < 2) {
-            room.addPlayer(new PlayerInfo(session, 2));
+            room.addPlayer(new Player(session, 2));
             sessionToRoom.put(session, roomId);
             return true;
         }
         return false;
     }
 
-    public PlayerInfo getPlayerBySession(WebSocketSession session) {
+    public Player getPlayerBySession(WebSocketSession session) {
         String roomId = sessionToRoom.get(session);
         if (roomId == null) return null;
 
@@ -50,7 +50,7 @@ public class RoomManager {
                 .orElse(null);
     }
 
-    public PlayerInfo getPlayer(String roomId, int playerNumber) {
+    public Player getPlayer(String roomId, int playerNumber) {
         Room room = rooms.get(roomId);
         if (room == null) return null;
         return room.getPlayers().stream()
@@ -66,7 +66,7 @@ public class RoomManager {
     public void broadcast(String roomId, TextMessage message, WebSocketSession exclude) {
         Room room = rooms.get(roomId);
         if (room != null) {
-            for (PlayerInfo player : room.getPlayers()) {
+            for (Player player : room.getPlayers()) {
                 if (!player.getSession().equals(exclude)) {
                     try {
                         if (player.getSession().isOpen()) {
