@@ -1,6 +1,11 @@
 package com.phaser.tank;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.phaser.tank.info.PlayerInfo;
+import com.phaser.tank.manager.BonusManager;
+import com.phaser.tank.manager.BulletManager;
+import com.phaser.tank.manager.EnemyManager;
+import com.phaser.tank.manager.PlayerManager;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import com.phaser.tank.util.MovementValidator;
@@ -12,27 +17,37 @@ public class Room {
     private final String roomId;
     private final PlayerManager playerManager = new PlayerManager();
     private List<String> levelMap;
+    private boolean spawningStarted = false;
 
     private final BulletManager bulletManager;
     private final BonusManager bonusManager;
+    private final EnemyManager enemyManager;
     private final ObjectMapper mapper = new ObjectMapper();
 
     public Room(String roomId) {
         this.roomId = roomId;
         this.bulletManager = new BulletManager(this);
         this.bonusManager = new BonusManager(this);
+        this.enemyManager = new EnemyManager(this);
     }
 
     public void addPlayer(PlayerInfo player) {
         playerManager.addPlayer(player);
 
         if (playerManager.getPlayerCount() == 2) {
-            bonusManager.spawnBonus();
+            if (!spawningStarted) {
+                bonusManager.spawnBonus();
+                enemyManager.startSpawning();
+                spawningStarted = true;
+            }
         }
     }
 
     public void removePlayer(WebSocketSession session) {
         playerManager.removePlayer(session);
+        if (playerManager.getPlayerCount() == 0) {
+            enemyManager.shutdown(); // stop enemy spawning
+        }
     }
 
     public int playerCount() {

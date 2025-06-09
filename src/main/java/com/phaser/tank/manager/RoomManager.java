@@ -1,5 +1,7 @@
-package com.phaser.tank;
+package com.phaser.tank.manager;
 
+import com.phaser.tank.Room;
+import com.phaser.tank.info.PlayerInfo;
 import org.springframework.web.socket.*;
 
 import java.io.BufferedReader;

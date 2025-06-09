@@ -1,4 +1,4 @@
-package com.phaser.tank;
+package com.phaser.tank.info;
 
 import org.springframework.web.socket.WebSocketSession;
 

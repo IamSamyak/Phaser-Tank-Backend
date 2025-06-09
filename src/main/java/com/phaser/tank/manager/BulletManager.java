@@ -1,4 +1,7 @@
-package com.phaser.tank;
+package com.phaser.tank.manager;
+
+import com.phaser.tank.Bullet;
+import com.phaser.tank.Room;
 
 import java.util.*;
 import java.util.concurrent.*;

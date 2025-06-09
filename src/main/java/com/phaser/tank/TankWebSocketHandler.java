@@ -1,6 +1,8 @@
 package com.phaser.tank;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.phaser.tank.info.PlayerInfo;
+import com.phaser.tank.manager.RoomManager;
 import org.springframework.web.socket.*;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
