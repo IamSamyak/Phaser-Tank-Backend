@@ -1,7 +1,7 @@
 package com.phaser.tank.util;
 
+import com.phaser.tank.model.Direction;
 import com.phaser.tank.model.Enemy;
-import com.phaser.tank.model.Enemy.Direction;
 
 import java.util.List;
 import java.util.Random;

@@ -87,8 +87,8 @@ public class Room {
         return TileHelper.getTile(x, y, levelMap);
     }
 
-    public void addBullet(String bulletId, int x, int y, int angle, BulletOrigin origin) {
-        bulletManager.addBullet(bulletId, x, y, angle, origin);
+    public void addBullet(String bulletId, int x, int y, Direction direction, BulletOrigin origin) {
+        bulletManager.addBullet(bulletId, x, y, direction, origin);
     }
 
     public void removeBullet(String bulletId) {
@@ -103,11 +103,11 @@ public class Room {
         return MovementValidator.isWithinMapBounds(row, col, levelMap);
     }
 
-    public void handlePlayerMove(WebSocketSession session, int newX, int newY, int newAngle) {
+    public void handlePlayerMove(WebSocketSession session, int newX, int newY, Direction direction) {
         Player player = playerManager.getPlayerBySession(session);
         if (player == null || player.getHealth() <= 0) return;
 
-        player.setAngle(newAngle);
+        player.setDirection(direction);
         if (MovementValidator.canMove(newX, newY, levelMap)) {
             player.setX(newX);
             player.setY(newY);
@@ -121,7 +121,7 @@ public class Room {
                 "playerNumber", player.getPlayerNumber(),
                 "x", player.getX(),
                 "y", player.getY(),
-                "angle", player.getAngle()
+                "direction", player.getDirection()
         ));
     }
 

@@ -22,25 +22,25 @@ public class BulletManager {
         scheduler.scheduleAtFixedRate(this::updateBullets, 50, 50, TimeUnit.MILLISECONDS);
     }
 
-    public void addBullet(String bulletId, int x, int y, int angle, BulletOrigin origin) {
+    public void addBullet(String bulletId, int x, int y, Direction  direction, BulletOrigin origin) {
 
         // Adjust starting position based on angle
-        switch (angle) {
-            case 0:   // Facing Up
-                y -= TILE_SIZE;
-                break;
-            case 90:  // Facing Right
-                x += TILE_SIZE;
-                break;
-            case 180: // Facing Down
-                y += TILE_SIZE;
-                break;
-            case 270: // Facing Left
-                x -= TILE_SIZE;
-                break;
-        }
+//        switch (angle) {
+//            case 0:   // Facing Up
+//                y -= TILE_SIZE;
+//                break;
+//            case 90:  // Facing Right
+//                x += TILE_SIZE;
+//                break;
+//            case 180: // Facing Down
+//                y += TILE_SIZE;
+//                break;
+//            case 270: // Facing Left
+//                x -= TILE_SIZE;
+//                break;
+//        }
 
-        Bullet bullet = new Bullet(bulletId, x, y, angle, origin);
+        Bullet bullet = new Bullet(bulletId, x, y, direction, origin);
         activeBullets.put(bulletId, bullet);
     }
 
@@ -176,7 +176,7 @@ public class BulletManager {
                         "bulletId", bullet.id,
                         "x", bullet.x,
                         "y", bullet.y,
-                        "angle", bullet.angle
+                        "direction", bullet.direction
                 ));
             }
         }

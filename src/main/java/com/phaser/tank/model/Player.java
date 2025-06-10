@@ -8,10 +8,11 @@ public class Player {
 
     private int x;
     private int y;
-    private int angle;
+
+    private Direction direction;
 
     // Bonus-related attributes
-    private int health = 3;          // Default starting health
+    private int health = 1;          // Default starting health
     private int bulletCount = 0;     // Number of bullets fired or active
     private int maxBullets = 1;      // Max allowed bullets on screen
 
@@ -20,7 +21,7 @@ public class Player {
         this.playerNumber = playerNumber;
         this.x = 0;
         this.y = 0;
-        this.angle = 0;
+        this.direction = Direction.UP;
     }
 
     public WebSocketSession getSession() {
@@ -35,6 +36,14 @@ public class Player {
         return x;
     }
 
+    public Direction getDirection() {
+        return direction;
+    }
+
+    public void setDirection(Direction direction) {
+        this.direction = direction;
+    }
+
     public void setX(int x) {
         this.x = x;
     }
@@ -45,14 +54,6 @@ public class Player {
 
     public void setY(int y) {
         this.y = y;
-    }
-
-    public int getAngle() {
-        return angle;
-    }
-
-    public void setAngle(int angle) {
-        this.angle = angle;
     }
 
     public int getHealth() {
@@ -105,7 +106,7 @@ public class Player {
                 "playerNumber=" + playerNumber +
                 ", x=" + x +
                 ", y=" + y +
-                ", angle=" + angle +
+                ", direction=" + direction +
                 ", health=" + health +
                 ", bulletCount=" + bulletCount +
                 ", maxBullets=" + maxBullets +

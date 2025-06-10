@@ -2,6 +2,7 @@ package com.phaser.tank.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.phaser.tank.model.BulletOrigin;
+import com.phaser.tank.model.Direction;
 import com.phaser.tank.model.Player;
 import com.phaser.tank.model.Room;
 import com.phaser.tank.manager.RoomManager;
@@ -33,6 +34,7 @@ public class TankWebSocketHandler extends TextWebSocketHandler {
                     "roomId", roomId,
                     "x", 10,
                     "y", 25,
+                    "direction", Direction.UP,
                     "levelMap", levelMap
             ))));
         } else if (uri.contains("/ws/join/")) {
@@ -49,6 +51,7 @@ public class TankWebSocketHandler extends TextWebSocketHandler {
                         "roomId", roomId,
                         "x", 16,
                         "y", 25,
+                        "direction", Direction.UP,
                         "levelMap", levelMap
                 ))));
 
@@ -59,6 +62,7 @@ public class TankWebSocketHandler extends TextWebSocketHandler {
                             "type", "spawn_other",
                             "x", 16,
                             "y", 25,
+                            "direction", Direction.UP,
                             "playerNumber", 2
                     ))));
                 }
@@ -70,6 +74,7 @@ public class TankWebSocketHandler extends TextWebSocketHandler {
                             "type", "spawn_other",
                             "x", 10,
                             "y", 25,
+                            "direction", Direction.UP,
                             "playerNumber", 1
                     ))));
                 }
@@ -103,11 +108,11 @@ public class TankWebSocketHandler extends TextWebSocketHandler {
                 String bulletId = (String) msgMap.get("bulletId");
                 int x = ((Number) msgMap.get("x")).intValue();
                 int y = ((Number) msgMap.get("y")).intValue();
-                int angle = ((Number) msgMap.get("angle")).intValue();
+                Direction direction = getDirectionFromString((String) msgMap.get("direction"));
 
                 Room room = roomManager.getRoom(roomId);
                 if (room != null) {
-                    room.addBullet(bulletId, x, y, angle, BulletOrigin.PLAYER);
+                    room.addBullet(bulletId, x, y, direction, BulletOrigin.PLAYER);
                 }
             }
 
@@ -117,13 +122,21 @@ public class TankWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
+    private Direction getDirectionFromString(String directionStr) {
+        try {
+            return Direction.valueOf(directionStr.toUpperCase()); // Convert string to enum safely
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid direction: " + directionStr);
+        }
+    }
+
+
     private void handlePlayerMove(String roomId, Player player, Map<String, Object> msgMap) {
         if (player == null) return;
 
         int x = ((Number) msgMap.get("x")).intValue();
         int y = ((Number) msgMap.get("y")).intValue();
-        int direction = ((Number) msgMap.get("direction")).intValue();
-
+        Direction direction = getDirectionFromString((String) msgMap.get("direction"));
         Room room = roomManager.getRoom(roomId);
         if (room != null) {
             // Correct method call with session, not player number

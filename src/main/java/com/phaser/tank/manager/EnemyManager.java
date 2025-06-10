@@ -1,9 +1,9 @@
 package com.phaser.tank.manager;
 
 import com.phaser.tank.model.BulletOrigin;
+import com.phaser.tank.model.Direction;
 import com.phaser.tank.model.Room;
 import com.phaser.tank.model.Enemy;
-import com.phaser.tank.model.Enemy.Direction;
 import com.phaser.tank.util.EnemyMovementHelper;
 import com.phaser.tank.util.EnemyPathFinder;
 import com.phaser.tank.util.EnemySpawner;
@@ -16,7 +16,7 @@ public class EnemyManager {
     private final Room room;
     private final Map<String, Enemy> enemies = new ConcurrentHashMap<>();
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
-    private static final int MAX_ENEMIES = 2;
+    private static final int MAX_ENEMIES = 3;
     private boolean movementScheduled = false;
     private final BulletManager bulletManager;
 
@@ -55,7 +55,7 @@ public class EnemyManager {
                 "enemyId", enemyId,
                 "x", enemy.getX(),
                 "y", enemy.getY(),
-                "angle", enemy.getAngle()
+                "direction", enemy.getDirection()
         ));
 
         if (!movementScheduled) {
@@ -70,7 +70,6 @@ public class EnemyManager {
         Random random = new Random();
 
         for (Enemy enemy : enemies.values()) {
-
             if (enemy.isSpecial()) {
                 Queue<int[]> path = enemy.getPath();
                 if (path != null && !path.isEmpty()) {
@@ -82,7 +81,6 @@ public class EnemyManager {
                     enemy.setX(nextX);
                     enemy.setY(nextY);
                     enemy.setDirection(dir);
-                    enemy.setAngleFromDirection();
 
                     enemy.incrementMoveCount();
                     if (enemy.getMoveCount() % 5 == 0) {
@@ -90,7 +88,7 @@ public class EnemyManager {
                                 UUID.randomUUID().toString(),
                                 enemy.getX(),
                                 enemy.getY(),
-                                enemy.getAngle(),
+                                enemy.getDirection(),
                                 BulletOrigin.ENEMY
                         );
                     }
@@ -99,7 +97,7 @@ public class EnemyManager {
                             "enemyId", enemy.getId(),
                             "x", enemy.getX(),
                             "y", enemy.getY(),
-                            "angle", enemy.getAngle()
+                            "direction", enemy.getDirection()
                     ));
                 }
                 continue;
@@ -116,7 +114,6 @@ public class EnemyManager {
                     Direction actualDir = EnemyMovementHelper.getDirection(enemy.getX(), enemy.getY(), next[0], next[1]);
 
                     enemy.setDirection(actualDir);
-                    enemy.setAngleFromDirection();
                     enemy.setHasMoved(true);
                     enemy.setX(next[0]);
                     enemy.setY(next[1]);
@@ -124,7 +121,6 @@ public class EnemyManager {
                     // fallback: keep previous direction or random from directionsToCheck
                     Direction fallbackDir = directionsToCheck.get(random.nextInt(directionsToCheck.size()));
                     enemy.setDirection(fallbackDir);
-                    enemy.setAngleFromDirection();
                     enemy.setHasMoved(true);
                 }
 
@@ -132,7 +128,7 @@ public class EnemyManager {
                         "enemyId", enemy.getId(),
                         "x", enemy.getX(),
                         "y", enemy.getY(),
-                        "angle", enemy.getAngle()
+                        "direction", enemy.getDirection()
                 ));
                 continue;
             }
@@ -142,32 +138,24 @@ public class EnemyManager {
             if (canMove) {
                 enemy.setX(next[0]);
                 enemy.setY(next[1]);
-                enemy.setAngleFromDirection();
 
                 updates.add(Map.of(
                         "enemyId", enemy.getId(),
                         "x", enemy.getX(),
                         "y", enemy.getY(),
-                        "angle", enemy.getAngle()
+                        "direction", enemy.getDirection()
                 ));
             }             else{
                 List<Direction> directions = new ArrayList<>(List.of(Direction.values()));
                 Collections.shuffle(directions);
 
-                boolean moved = false;
                 for (Direction dir : directions) {
                     if (dir == enemy.getDirection()) continue;
                     int[] tryPos = EnemyMovementHelper.getNextPosition(enemy.getX(), enemy.getY(), dir);
                     if (MovementValidator.canMove(tryPos[0], tryPos[1], levelMap)) {
                         enemy.setDirection(dir);
-                        enemy.setAngleFromDirection();
-                        moved = true;
                         break;
                     }
-                }
-
-                if (!moved) {
-                    enemy.setAngleFromDirection();
                 }
             }
             enemy.incrementMoveCount();
@@ -177,7 +165,7 @@ public class EnemyManager {
                         UUID.randomUUID().toString(),
                         enemy.getX(),
                         enemy.getY(),
-                        enemy.getAngle(),
+                        enemy.getDirection(),
                         BulletOrigin.ENEMY
                 );
             }

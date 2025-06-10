@@ -3,29 +3,25 @@ package com.phaser.tank.model;
 import java.util.*;
 
 public class Enemy {
-    public enum Direction { UP, DOWN, LEFT, RIGHT }
 
     private final String id;
     private int x;
     private int y;
-    private int angle;
+    private Direction direction;
     private int health = 1;
     private int moveCount = 0;
 
-    private Direction direction;
     private boolean hasMoved = false;
 
     // NEW: Special enemy support
     private boolean isSpecial = false;
     private Queue<int[]> path = new LinkedList<>();
 
-    public Enemy(String id, int x, int y, int angle) {
+    public Enemy(String id, int x, int y, Direction direction) {
         this.id = id;
         this.x = x;
         this.y = y;
-        this.angle = angle;
-        this.direction = Direction.values()[new Random().nextInt(4)]; // Random start direction
-        setAngleFromDirection();
+        this.direction = direction;
     }
 
     // Basic getters/setters
@@ -34,8 +30,6 @@ public class Enemy {
     public void setX(int x) { this.x = x; }
     public int getY() { return y; }
     public void setY(int y) { this.y = y; }
-    public int getAngle() { return angle; }
-    public void setAngle(int angle) { this.angle = angle; }
     public int getHealth() { return health; }
     public void setHealth(int health) { this.health = health; }
     public boolean isDestroyed() { return health <= 0; }
@@ -48,15 +42,6 @@ public class Enemy {
 
     public void damage(int amount) {
         this.health -= amount;
-    }
-
-    public void setAngleFromDirection() {
-        switch (direction) {
-            case UP -> angle = 0;
-            case RIGHT -> angle = 90;
-            case DOWN -> angle = 180;
-            case LEFT -> angle = 270;
-        }
     }
 
     // === SPECIAL ENEMY SUPPORT ===

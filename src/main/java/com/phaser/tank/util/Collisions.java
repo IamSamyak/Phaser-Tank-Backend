@@ -45,27 +45,26 @@ public class Collisions {
         return isBulletHittingWithTank(bulletX, bulletY, baseX, baseY);
     }
 
-    public static boolean isBulletHittingWithTank(int bulletX, int bulletY, int tankBottomLeftX, int tankBottomLeftY) {
+    public static boolean isBulletHittingWithTank(int bulletX, int bulletY, int tankBottomRightX, int tankBottomRightY) {
 
-        // Adjust tank boundaries based on bottom-left coordinates
+        // Adjust tank boundaries based on bottom-right coordinates
+        int tankBottomLeftX = tankBottomRightX - 64;
         int tankTopLeftX = tankBottomLeftX;
-        int tankTopLeftY = tankBottomLeftY - 64;
-        int tankTopRightX = tankBottomLeftX + 64;
-        int tankBottomRightY = tankBottomLeftY;
+        int tankTopLeftY = tankBottomRightY - 64;
+        int tankTopRightX = tankBottomRightX;
 
         // Check if bullet is inside tank
         boolean insideTank = bulletX >= tankTopLeftX && bulletX < tankTopRightX
-                && bulletY >= tankTopLeftY && bulletY < tankBottomLeftY;
+                && bulletY >= tankTopLeftY && bulletY < tankBottomRightY;
 
         // Check if bullet is hitting any of the tank corners
         boolean hittingCorner = (bulletX == tankTopLeftX && bulletY == tankTopLeftY) ||      // Top-left
                 (bulletX == tankTopRightX && bulletY == tankTopLeftY) ||  // Top-right
-                (bulletX == tankBottomLeftX && bulletY == tankBottomLeftY) || // Bottom-left
-                (bulletX == tankTopRightX && bulletY == tankBottomRightY); // Bottom-right
+                (bulletX == tankBottomLeftX && bulletY == tankBottomRightY) || // Bottom-left
+                (bulletX == tankBottomRightX && bulletY == tankBottomRightY); // Bottom-right
 
         return insideTank || hittingCorner; // True if inside or hitting corner
     }
-
 
     public static boolean isBulletCollidingWithTank(int bulletX, int bulletY,
                                                     int tankX, int tankY) {

@@ -3,9 +3,9 @@ package com.phaser.tank.model;
 public class Bullet {
     public final String id;
     public int x, y;
-    public int angle;
+    public final Direction direction;
     public int dx, dy;
-    public double speed = 1;
+    public int speed = 1;
     public boolean destroyed = false;
     public final BulletOrigin origin; // Enum type for bullet origin
 
@@ -13,22 +13,21 @@ public class Bullet {
     private static final int TILE_SIZE = 32;
     private static final int MAX_TICKS = 27;
 
-    public Bullet(String id, int x, int y, int angle, BulletOrigin origin) {
+    public Bullet(String id, int x, int y, Direction direction, BulletOrigin origin) {
         this.id = id;
         this.x = x;
         this.y = y;
-        this.angle = angle;
+        this.direction = direction;
         this.origin = origin;
-        initializeDirection(angle);
+        initializeDirection(direction);
     }
 
-    private void initializeDirection(int angle) {
-        switch (angle) {
-            case 0 -> { dx = 0; dy = -TILE_SIZE; }
-            case 90 -> { dx = TILE_SIZE; dy = 0; }
-            case 180 -> { dx = 0; dy = TILE_SIZE; }
-            case 270 -> { dx = -TILE_SIZE; dy = 0; }
-            default -> { dx = 0; dy = -TILE_SIZE; } // Default to up
+    private void initializeDirection(Direction direction) {
+        switch (direction) {
+            case UP -> { dx = 0; dy = -TILE_SIZE; }
+            case RIGHT -> { dx = TILE_SIZE; dy = 0; }
+            case DOWN -> { dx = 0; dy = TILE_SIZE; }
+            case LEFT -> { dx = -TILE_SIZE; dy = 0; }
         }
     }
 
