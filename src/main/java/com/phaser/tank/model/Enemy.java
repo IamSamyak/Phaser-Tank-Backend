@@ -10,6 +10,7 @@ public class Enemy {
     private int y;
     private int angle;
     private int health = 1;
+    private int moveCount = 0;
 
     private Direction direction;
     private boolean hasMoved = false;
@@ -73,5 +74,12 @@ public class Enemy {
 
     public void setPath(Queue<int[]> path) {
         this.path = path;
+    }
+    public void incrementMoveCount() {
+        moveCount++;
+    }
+
+    public int getMoveCount() {
+        return moveCount;
     }
 }

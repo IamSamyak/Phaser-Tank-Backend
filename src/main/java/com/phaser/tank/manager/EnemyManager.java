@@ -17,11 +17,13 @@ public class EnemyManager {
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
     private static final int MAX_ENEMIES = 2;
     private boolean movementScheduled = false;
+    private final BulletManager bulletManager;
 
     private static final int TILE_SIZE = 32;
 
-    public EnemyManager(Room room) {
+    public EnemyManager(Room room, BulletManager bulletManager) {
         this.room = room;
+        this.bulletManager = bulletManager;
     }
 
     public void startSpawning() {
@@ -67,6 +69,16 @@ public class EnemyManager {
         Random random = new Random();
 
         for (Enemy enemy : enemies.values()) {
+            enemy.incrementMoveCount();
+
+            if (enemy.getMoveCount() % 5 == 0) {
+                bulletManager.addBullet(
+                        UUID.randomUUID().toString(),
+                        enemy.getX(),
+                        enemy.getY(),
+                        enemy.getAngle()
+                );
+            }
             if (enemy.isSpecial()) {
                 Queue<int[]> path = enemy.getPath();
                 if (path != null && !path.isEmpty()) {

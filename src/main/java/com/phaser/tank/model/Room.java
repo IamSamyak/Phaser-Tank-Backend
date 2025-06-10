@@ -27,7 +27,7 @@ public class Room {
         this.roomId = roomId;
         this.bulletManager = new BulletManager(this);
         this.bonusManager = new BonusManager(this);
-        this.enemyManager = new EnemyManager(this);
+        this.enemyManager = new EnemyManager(this, this.bulletManager);
     }
 
     public void addPlayer(Player player) {
