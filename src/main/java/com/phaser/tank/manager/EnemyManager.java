@@ -69,16 +69,7 @@ public class EnemyManager {
         Random random = new Random();
 
         for (Enemy enemy : enemies.values()) {
-            enemy.incrementMoveCount();
 
-            if (enemy.getMoveCount() % 5 == 0) {
-                bulletManager.addBullet(
-                        UUID.randomUUID().toString(),
-                        enemy.getX(),
-                        enemy.getY(),
-                        enemy.getAngle()
-                );
-            }
             if (enemy.isSpecial()) {
                 Queue<int[]> path = enemy.getPath();
                 if (path != null && !path.isEmpty()) {
@@ -91,6 +82,16 @@ public class EnemyManager {
                     enemy.setY(nextY);
                     enemy.setDirection(dir);
                     enemy.setAngleFromDirection();
+
+                    enemy.incrementMoveCount();
+                    if (enemy.getMoveCount() % 5 == 0) {
+                        bulletManager.addBullet(
+                                UUID.randomUUID().toString(),
+                                enemy.getX(),
+                                enemy.getY(),
+                                enemy.getAngle()
+                        );
+                    }
 
                     updates.add(Map.of(
                             "enemyId", enemy.getId(),
@@ -147,7 +148,7 @@ public class EnemyManager {
                         "y", enemy.getY(),
                         "angle", enemy.getAngle()
                 ));
-            } else {
+            }             else{
                 List<Direction> directions = new ArrayList<>(List.of(Direction.values()));
                 Collections.shuffle(directions);
 
@@ -166,6 +167,16 @@ public class EnemyManager {
                 if (!moved) {
                     enemy.setAngleFromDirection();
                 }
+            }
+            enemy.incrementMoveCount();
+
+            if (enemy.getMoveCount() % 5 == 0) {
+                bulletManager.addBullet(
+                        UUID.randomUUID().toString(),
+                        enemy.getX(),
+                        enemy.getY(),
+                        enemy.getAngle()
+                );
             }
         }
 

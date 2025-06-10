@@ -5,6 +5,7 @@ import com.phaser.tank.manager.BonusManager;
 import com.phaser.tank.manager.BulletManager;
 import com.phaser.tank.manager.EnemyManager;
 import com.phaser.tank.manager.PlayerManager;
+import com.phaser.tank.util.TileHelper;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import com.phaser.tank.util.MovementValidator;
@@ -49,6 +50,15 @@ public class Room {
         }
     }
 
+    public List<Enemy> getEnemies() {
+        return new ArrayList<>(enemyManager.getEnemies().values());
+    }
+
+    public void removeEnemy(Enemy enemy) {
+        enemyManager.getEnemies().remove(enemy.getId());
+    }
+
+
     public int playerCount() {
         return playerManager.getPlayerCount();
     }
@@ -70,21 +80,11 @@ public class Room {
     }
 
     public void updateTile(int x, int y, char newChar) {
-        if (levelMap == null || y < 0 || y >= levelMap.size()) return;
-
-        String row = levelMap.get(y);
-        if (x < 0 || x >= row.length()) return;
-
-        char[] chars = row.toCharArray();
-        chars[x] = newChar;
-        levelMap.set(y, new String(chars));
+        TileHelper.updateTile(x, y, newChar, levelMap);
     }
 
     public char getTile(int x, int y) {
-        if (levelMap == null || y < 0 || y >= levelMap.size()) return '?';
-        String row = levelMap.get(y);
-        if (x < 0 || x >= row.length()) return '?';
-        return row.charAt(x);
+        return TileHelper.getTile(x, y, levelMap);
     }
 
     public void addBullet(String bulletId, int x, int y, int angle) {
@@ -105,7 +105,7 @@ public class Room {
 
     public void handlePlayerMove(WebSocketSession session, int newX, int newY, int newAngle) {
         Player player = playerManager.getPlayerBySession(session);
-        if (player == null) return;
+        if (player == null || player.getHealth() <= 0) return;
 
         player.setAngle(newAngle);
         if (MovementValidator.canMove(newX, newY, levelMap)) {

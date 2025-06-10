@@ -19,12 +19,16 @@ public class TileHelper {
         };
     }
 
+    public static boolean canDestoryBullet(char tileChar) {
+        String type = tileMapping(tileChar);
+        return "brick".equals(type) || "stone".equals(type) ||"ice".equals(type);
+    }
+
     public static boolean isWalkable(char tileChar) {
         String type = tileMapping(tileChar);
         return "empty".equals(type) || "bush".equals(type);
     }
 
-    // New: Find all walkable tiles in a level map
     public static List<int[]> findWalkableTiles(List<String> levelMap) {
         List<int[]> walkables = new ArrayList<>();
         if (levelMap == null) return walkables;
@@ -40,7 +44,6 @@ public class TileHelper {
         return walkables;
     }
 
-    // New: Convert tile coordinates to pixel center
     public static double[] tileToPixelCenter(int row, int col) {
         return new double[]{
                 (col + 0.5) * TILE_SIZE,
@@ -48,28 +51,19 @@ public class TileHelper {
         };
     }
 
-    public static List<int[]> getImpactTiles(double x, double y, double dx, double dy) {
-        int tileX = (int) (x / TILE_SIZE);
-        int tileY = (int) (y / TILE_SIZE);
+    public static char getTile(int x, int y, List<String> levelMap) {
+        if (levelMap == null || y < 0 || y >= levelMap.size()) return '?';
+        String row = levelMap.get(y);
+        if (x < 0 || x >= row.length()) return '?';
+        return row.charAt(x);
+    }
 
-        List<int[]> impactTiles = new ArrayList<>();
-
-        if (dy != 0) {
-            int colLeft = (int) ((x - TILE_SIZE / 2.0) / TILE_SIZE);
-            int colRight = (int) ((x + TILE_SIZE / 2.0 - 1) / TILE_SIZE);
-            int row = (int) ((y + dy) / TILE_SIZE);
-            impactTiles.add(new int[]{row, colLeft});
-            impactTiles.add(new int[]{row, colRight});
-        } else if (dx != 0) {
-            int rowTop = (int) ((y - TILE_SIZE / 2.0) / TILE_SIZE);
-            int rowBottom = (int) ((y + TILE_SIZE / 2.0 - 1) / TILE_SIZE);
-            int col = (int) ((x + dx) / TILE_SIZE);
-            impactTiles.add(new int[]{rowTop, col});
-            impactTiles.add(new int[]{rowBottom, col});
-        } else {
-            impactTiles.add(new int[]{tileY, tileX});
-        }
-
-        return impactTiles;
+    public static void updateTile(int x, int y, char newChar, List<String> levelMap) {
+        if (levelMap == null || y < 0 || y >= levelMap.size()) return;
+        String row = levelMap.get(y);
+        if (x < 0 || x >= row.length()) return;
+        char[] chars = row.toCharArray();
+        chars[x] = newChar;
+        levelMap.set(y, new String(chars));
     }
 }

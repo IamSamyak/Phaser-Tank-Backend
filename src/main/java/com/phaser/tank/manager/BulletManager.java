@@ -1,11 +1,17 @@
 package com.phaser.tank.manager;
 
 import com.phaser.tank.model.Bullet;
+import com.phaser.tank.model.Enemy;
+import com.phaser.tank.model.Player;
 import com.phaser.tank.model.Room;
+import com.phaser.tank.util.Collisions;
 import com.phaser.tank.util.TileHelper;
 
 import java.util.*;
 import java.util.concurrent.*;
+
+import static com.phaser.tank.util.Collisions.isBulletCollidingWithTank;
+import static com.phaser.tank.util.GameConstants.TILE_SIZE;
 
 public class BulletManager {
 
@@ -19,9 +25,27 @@ public class BulletManager {
     }
 
     public void addBullet(String bulletId, int x, int y, int angle) {
+
+        // Adjust starting position based on angle
+        switch (angle) {
+            case 0:   // Facing Up
+                y -= TILE_SIZE;
+                break;
+            case 90:  // Facing Right
+                x += TILE_SIZE;
+                break;
+            case 180: // Facing Down
+                y += TILE_SIZE;
+                break;
+            case 270: // Facing Left
+                x -= TILE_SIZE;
+                break;
+        }
+
         Bullet bullet = new Bullet(bulletId, x, y, angle);
         activeBullets.put(bulletId, bullet);
     }
+
 
     public void removeBullet(String bulletId) {
         activeBullets.remove(bulletId);
@@ -37,40 +61,109 @@ public class BulletManager {
         List<Map<String, Object>> tileUpdates = new ArrayList<>();
         List<Map<String, Object>> explosions = new ArrayList<>();
 
+        // Bullet collision detection at their exact meeting point
+        Map<String, Bullet> bulletsToDestroy = Collisions.detectBulletCollisions(activeBullets.values());
+
+
+        // Trigger explosion only at the precise meeting point
+        if (!bulletsToDestroy.isEmpty()) {
+            Bullet firstBullet = bulletsToDestroy.values().iterator().next();
+            explosions.add(Map.of(
+                    "x", firstBullet.x,
+                    "y", firstBullet.y
+            ));
+        }
+
         for (Iterator<Map.Entry<String, Bullet>> it = activeBullets.entrySet().iterator(); it.hasNext(); ) {
             Map.Entry<String, Bullet> entry = it.next();
             Bullet bullet = entry.getValue();
 
             bullet.move();
 
-            boolean hit = false;
+            boolean hit = bulletsToDestroy.containsKey(bullet.id);
 
-            List<int[]> impactTiles = TileHelper.getImpactTiles(bullet.x, bullet.y, bullet.dx, bullet.dy);
+            for (Player player : room.getPlayers()) {
+                if (isBulletCollidingWithTank(bullet.x, bullet.y, player.getX(), player.getY())) {
+                    hit = true;
+                    player.setHealth(player.getHealth() - 1);
+
+                    if (player.getHealth() <= 0) {
+                        // optional: mark player as destroyed, or respawn logic
+                        room.broadcast(Map.of(
+                                "type", "player_destroyed",
+                                "playerNumber", player.getPlayerNumber()
+                        ));
+                    } else {
+                        room.broadcast(Map.of(
+                                "type", "player_hit",
+                                "playerNumber", player.getPlayerNumber(),
+                                "health", player.getHealth()
+                        ));
+                    }
+
+                    explosions.add(Map.of(
+                            "x", bullet.x,
+                            "y", bullet.y
+                    ));
+
+                    break; // stop checking after first hit
+                }
+            }
+
+            for (Enemy enemy : room.getEnemies()) {
+                if (isBulletCollidingWithTank(bullet.x, bullet.y, enemy.getX(), enemy.getY())) {
+                    hit = true;
+                    enemy.setHealth(enemy.getHealth() - 1);
+
+                    if (enemy.getHealth() <= 0) {
+                        room.removeEnemy(enemy);
+                        room.broadcast(Map.of(
+                                "type", "enemy_destroyed",
+                                "enemyId", enemy.getId()
+                        ));
+                    } else {
+                        room.broadcast(Map.of(
+                                "type", "enemy_hit",
+                                "enemyId", enemy.getId(),
+                                "health", enemy.getHealth()
+                        ));
+                    }
+
+                    explosions.add(Map.of(
+                            "x", bullet.x,
+                            "y", bullet.y
+                    ));
+
+                    break;
+                }
+            }
+
+            List<int[]> impactTiles = Collisions.getImpactTiles(bullet.x, bullet.y, bullet.dx, bullet.dy);
             for (int[] tilePos : impactTiles) {
                 int row = tilePos[0];
                 int col = tilePos[1];
                 if (!room.isWithinMapBounds(row, col)) continue;
 
-                char tile = room.getTile(col, row);
-                if (tile == '#' || tile == '@') {
+                char tileChar = room.getTile(col, row);
+                if (TileHelper.canDestoryBullet(tileChar)) {
                     hit = true;
-                    if (tile == '#') {
+                    if (TileHelper.tileMapping(tileChar).equals("brick")) {
                         room.updateTile(col, row, '.');
-                        tileUpdates.add(Map.of(
-                                "x", col,
-                                "y", row,
-                                "tile", "."
-                        ));
+                        tileUpdates.add(Map.of("x", col, "y", row, "tile", ".")); // brick to empty
+                        explosions.add(Map.of("x", bullet.x, "y", bullet.y));
                     }
                 }
             }
 
+            if (Collisions.isBulletCollidingWithBase(bullet.x, bullet.y)) {
+                hit = true;
+                room.broadcast(Map.of(
+                        "type", "base_destroyed"
+                ));
+            }
+
             if (hit) {
                 bullet.destroyed = true;
-                explosions.add(Map.of(
-                        "x", bullet.x,
-                        "y", bullet.y
-                ));
             }
 
             if (room.isOutOfBounds(bullet.x, bullet.y)) {
@@ -84,7 +177,8 @@ public class BulletManager {
                 moveUpdates.add(Map.of(
                         "bulletId", bullet.id,
                         "x", bullet.x,
-                        "y", bullet.y
+                        "y", bullet.y,
+                        "angle", bullet.angle
                 ));
             }
         }
