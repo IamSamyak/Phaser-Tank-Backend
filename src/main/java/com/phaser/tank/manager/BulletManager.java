@@ -1,9 +1,6 @@
 package com.phaser.tank.manager;
 
-import com.phaser.tank.model.Bullet;
-import com.phaser.tank.model.Enemy;
-import com.phaser.tank.model.Player;
-import com.phaser.tank.model.Room;
+import com.phaser.tank.model.*;
 import com.phaser.tank.util.Collisions;
 import com.phaser.tank.util.TileHelper;
 
@@ -11,6 +8,7 @@ import java.util.*;
 import java.util.concurrent.*;
 
 import static com.phaser.tank.util.Collisions.isBulletCollidingWithTank;
+import static com.phaser.tank.util.Collisions.isBulletHittingWithTank;
 import static com.phaser.tank.util.GameConstants.TILE_SIZE;
 
 public class BulletManager {
@@ -24,7 +22,7 @@ public class BulletManager {
         scheduler.scheduleAtFixedRate(this::updateBullets, 50, 50, TimeUnit.MILLISECONDS);
     }
 
-    public void addBullet(String bulletId, int x, int y, int angle) {
+    public void addBullet(String bulletId, int x, int y, int angle, BulletOrigin origin) {
 
         // Adjust starting position based on angle
         switch (angle) {
@@ -42,7 +40,7 @@ public class BulletManager {
                 break;
         }
 
-        Bullet bullet = new Bullet(bulletId, x, y, angle);
+        Bullet bullet = new Bullet(bulletId, x, y, angle, origin);
         activeBullets.put(bulletId, bullet);
     }
 
@@ -83,7 +81,7 @@ public class BulletManager {
             boolean hit = bulletsToDestroy.containsKey(bullet.id);
 
             for (Player player : room.getPlayers()) {
-                if (isBulletCollidingWithTank(bullet.x, bullet.y, player.getX(), player.getY())) {
+                if (bullet.origin == BulletOrigin.ENEMY && isBulletHittingWithTank(bullet.x, bullet.y, player.getX(), player.getY())) {
                     hit = true;
                     player.setHealth(player.getHealth() - 1);
 
@@ -111,7 +109,7 @@ public class BulletManager {
             }
 
             for (Enemy enemy : room.getEnemies()) {
-                if (isBulletCollidingWithTank(bullet.x, bullet.y, enemy.getX(), enemy.getY())) {
+                if (bullet.origin == BulletOrigin.PLAYER && isBulletHittingWithTank(bullet.x, bullet.y, enemy.getX(), enemy.getY())) {
                     hit = true;
                     enemy.setHealth(enemy.getHealth() - 1);
 

@@ -1,6 +1,7 @@
 package com.phaser.tank.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.phaser.tank.model.BulletOrigin;
 import com.phaser.tank.model.Player;
 import com.phaser.tank.model.Room;
 import com.phaser.tank.manager.RoomManager;
@@ -106,7 +107,7 @@ public class TankWebSocketHandler extends TextWebSocketHandler {
 
                 Room room = roomManager.getRoom(roomId);
                 if (room != null) {
-                    room.addBullet(bulletId, x, y, angle);
+                    room.addBullet(bulletId, x, y, angle, BulletOrigin.PLAYER);
                 }
             }
 

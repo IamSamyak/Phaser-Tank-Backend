@@ -1,5 +1,6 @@
 package com.phaser.tank.manager;
 
+import com.phaser.tank.model.BulletOrigin;
 import com.phaser.tank.model.Room;
 import com.phaser.tank.model.Enemy;
 import com.phaser.tank.model.Enemy.Direction;
@@ -89,7 +90,8 @@ public class EnemyManager {
                                 UUID.randomUUID().toString(),
                                 enemy.getX(),
                                 enemy.getY(),
-                                enemy.getAngle()
+                                enemy.getAngle(),
+                                BulletOrigin.ENEMY
                         );
                     }
 
@@ -175,7 +177,8 @@ public class EnemyManager {
                         UUID.randomUUID().toString(),
                         enemy.getX(),
                         enemy.getY(),
-                        enemy.getAngle()
+                        enemy.getAngle(),
+                        BulletOrigin.ENEMY
                 );
             }
         }

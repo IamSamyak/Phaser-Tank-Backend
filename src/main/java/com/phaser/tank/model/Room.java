@@ -87,8 +87,8 @@ public class Room {
         return TileHelper.getTile(x, y, levelMap);
     }
 
-    public void addBullet(String bulletId, int x, int y, int angle) {
-        bulletManager.addBullet(bulletId, x, y, angle);
+    public void addBullet(String bulletId, int x, int y, int angle, BulletOrigin origin) {
+        bulletManager.addBullet(bulletId, x, y, angle, origin);
     }
 
     public void removeBullet(String bulletId) {
