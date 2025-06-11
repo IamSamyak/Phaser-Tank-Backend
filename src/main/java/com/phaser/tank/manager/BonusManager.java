@@ -9,8 +9,6 @@ import com.phaser.tank.util.GameConstants;
 import java.util.*;
 import java.util.concurrent.*;
 
-import static com.phaser.tank.util.GameConstants.TILE_SIZE;
-
 public class BonusManager {
 
     private final Room room;
@@ -24,21 +22,10 @@ public class BonusManager {
     }
 
     public void spawnBonus() {
-        List<int[]> walkableTiles = TileHelper.findWalkableTiles(room.getLevelMap());
+        int x = random.nextInt(26); // 0 to 25
+        int y = random.nextInt(26); // 0 to 25
 
-        if (walkableTiles.isEmpty()) {
-            scheduleNextBonus();
-            return;
-        }
-
-        int[] pos = walkableTiles.get(random.nextInt(walkableTiles.size()));
-        int row = pos[0];
-        int col = pos[1];
         String bonusType = GameConstants.BONUS_TYPES.get(random.nextInt(GameConstants.BONUS_TYPES.size()));
-
-        double[] center = TileHelper.tileToPixelCenter(row, col);
-        double x = center[0];
-        double y = center[1];
 
         String bonusId = UUID.randomUUID().toString();
         Bonus bonus = new Bonus(bonusId, x, y, bonusType);
@@ -63,15 +50,17 @@ public class BonusManager {
     }
 
     public void checkBonusCollision(Player player) {
-        double px = player.getX();
-        double py = player.getY();
+        int px = (int) player.getX(); // assume already tile coordinates
+        int py = (int) player.getY();
 
         for (Iterator<Map.Entry<String, Bonus>> it = activeBonuses.entrySet().iterator(); it.hasNext(); ) {
             Map.Entry<String, Bonus> entry = it.next();
             Bonus bonus = entry.getValue();
 
-            double dist = Math.hypot(px - bonus.getX(), py - bonus.getY());
-            if (dist < TILE_SIZE) {
+            int bx = (int) bonus.getX();
+            int by = (int) bonus.getY();
+
+            if (px == bx && py == by) {
                 it.remove();
 
                 room.broadcast(Map.of(
@@ -87,7 +76,6 @@ public class BonusManager {
     }
 
     private void applyBonusEffect(Player player, String type) {
-        System.out.println("tupe " + type);
         switch (type) {
             case "helmet":
                 player.setHealth(player.getHealth() + 1);

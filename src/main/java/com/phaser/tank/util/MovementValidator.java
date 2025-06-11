@@ -2,53 +2,35 @@ package com.phaser.tank.util;
 
 import java.util.List;
 
-import static com.phaser.tank.util.GameConstants.TILE_SIZE;
-
 public class MovementValidator {
 
-    private static final int TANK_SIZE = TILE_SIZE;
+    private static final int MAP_ROWS = 26;
+    private static final int MAP_COLS = 26;
 
-    public static boolean canMove(int x, int y, List<String> levelMap) {
-        int half = TANK_SIZE / 2;
-
-        int topLeftRow = (int) Math.floor((double) (y - half) / TILE_SIZE);
-        int topLeftCol = (int) Math.floor((double) (x - half) / TILE_SIZE);
-
-        int topRightRow = topLeftRow;
-        int topRightCol = (int) Math.floor((double) (x + half - 1) / TILE_SIZE);
-
-        int bottomLeftRow = (int) Math.floor((double) (y + half - 1) / TILE_SIZE);
-        int bottomLeftCol = topLeftCol;
-
-        int bottomRightRow = bottomLeftRow;
-        int bottomRightCol = topRightCol;
-
-        return isWalkable(topLeftRow, topLeftCol, levelMap) &&
-                isWalkable(topRightRow, topRightCol, levelMap) &&
-                isWalkable(bottomLeftRow, bottomLeftCol, levelMap) &&
-                isWalkable(bottomRightRow, bottomRightCol, levelMap);
+    public static boolean canMove(int col, int row, List<String> levelMap) {
+        // Check if all 4 tiles of the 2x2 tank are walkable, given bottom-right at (row, col)
+        return isWalkable(row - 1, col - 1, levelMap) &&  // top-left
+                isWalkable(row - 1, col, levelMap) &&      // top-right
+                isWalkable(row, col - 1, levelMap) &&      // bottom-left
+                isWalkable(row, col, levelMap);            // bottom-right
     }
 
     private static boolean isWalkable(int row, int col, List<String> levelMap) {
-        if (!isWithinMapBounds(row, col, levelMap)) return false;
+        if (!isWithinMapBounds(row, col)) return false;
         char tileChar = getTile(col, row, levelMap);
         return TileHelper.isWalkable(tileChar);
     }
 
-    public static boolean isWithinMapBounds(int row, int col, List<String> levelMap) {
-        return levelMap != null && row >= 0 && row < levelMap.size()
-                && col >= 0 && col < levelMap.get(0).length();
+    public static boolean isWithinMapBounds(int row, int col) {
+        return row >= 0 && row < MAP_ROWS && col >= 0 && col < MAP_COLS;
     }
 
-    public static boolean isOutOfBounds(double x, double y, List<String> levelMap) {
-        if (levelMap == null) return true;
-        return x < 0 || y < 0 || y >= levelMap.size() * TILE_SIZE || x >= levelMap.get(0).length() * TILE_SIZE;
+    public static boolean isOutOfBounds(int col, int row) {
+        return row < 0 || row >= MAP_ROWS || col < 0 || col >= MAP_COLS;
     }
 
-    private static char getTile(int x, int y, List<String> levelMap) {
-        if (levelMap == null || y < 0 || y >= levelMap.size()) return '?';
-        String row = levelMap.get(y);
-        if (x < 0 || x >= row.length()) return '?';
-        return row.charAt(x);
+    private static char getTile(int col, int row, List<String> levelMap) {
+        if (levelMap == null || !isWithinMapBounds(row, col)) return '?';
+        return levelMap.get(row).charAt(col);
     }
 }

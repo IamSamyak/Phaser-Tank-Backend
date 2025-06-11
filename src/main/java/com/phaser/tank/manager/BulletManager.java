@@ -2,48 +2,37 @@ package com.phaser.tank.manager;
 
 import com.phaser.tank.model.*;
 import com.phaser.tank.util.Collisions;
+import com.phaser.tank.util.EnemyMovementHelper;
+import com.phaser.tank.util.MovementValidator;
 import com.phaser.tank.util.TileHelper;
 
 import java.util.*;
 import java.util.concurrent.*;
 
-import static com.phaser.tank.util.Collisions.isBulletCollidingWithTank;
-import static com.phaser.tank.util.Collisions.isBulletHittingWithTank;
-import static com.phaser.tank.util.GameConstants.TILE_SIZE;
+import static com.phaser.tank.util.Collisions.isBulletHittingTank;
 
 public class BulletManager {
 
     private final Room room;
     private final Map<String, Bullet> activeBullets = new ConcurrentHashMap<>();
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+    private ScheduledFuture<?> bulletUpdateTask;
+    private final Object lock = new Object();
 
     public BulletManager(Room room) {
         this.room = room;
-        scheduler.scheduleAtFixedRate(this::updateBullets, 50, 50, TimeUnit.MILLISECONDS);
     }
 
-    public void addBullet(String bulletId, int x, int y, Direction  direction, BulletOrigin origin) {
+    public void addBullet(int x, int y, Direction direction, BulletOrigin origin) {
+        Bullet bullet = new Bullet(x, y, direction, origin);
+        activeBullets.put(bullet.id, bullet);
 
-        // Adjust starting position based on angle
-//        switch (angle) {
-//            case 0:   // Facing Up
-//                y -= TILE_SIZE;
-//                break;
-//            case 90:  // Facing Right
-//                x += TILE_SIZE;
-//                break;
-//            case 180: // Facing Down
-//                y += TILE_SIZE;
-//                break;
-//            case 270: // Facing Left
-//                x -= TILE_SIZE;
-//                break;
-//        }
-
-        Bullet bullet = new Bullet(bulletId, x, y, direction, origin);
-        activeBullets.put(bulletId, bullet);
+        synchronized (lock) {
+            if (bulletUpdateTask == null || bulletUpdateTask.isCancelled() || bulletUpdateTask.isDone()) {
+                bulletUpdateTask = scheduler.scheduleAtFixedRate(this::updateBullets, 0, 50, TimeUnit.MILLISECONDS);
+            }
+        }
     }
-
 
     public void removeBullet(String bulletId) {
         activeBullets.remove(bulletId);
@@ -59,34 +48,26 @@ public class BulletManager {
         List<Map<String, Object>> tileUpdates = new ArrayList<>();
         List<Map<String, Object>> explosions = new ArrayList<>();
 
-        // Bullet collision detection at their exact meeting point
         Map<String, Bullet> bulletsToDestroy = Collisions.detectBulletCollisions(activeBullets.values());
 
-
-        // Trigger explosion only at the precise meeting point
         if (!bulletsToDestroy.isEmpty()) {
             Bullet firstBullet = bulletsToDestroy.values().iterator().next();
-            explosions.add(Map.of(
-                    "x", firstBullet.x,
-                    "y", firstBullet.y
-            ));
+            explosions.add(Map.of("x", firstBullet.x, "y", firstBullet.y));
         }
 
         for (Iterator<Map.Entry<String, Bullet>> it = activeBullets.entrySet().iterator(); it.hasNext(); ) {
             Map.Entry<String, Bullet> entry = it.next();
             Bullet bullet = entry.getValue();
 
-            bullet.move();
-
+//            bullet.move();
             boolean hit = bulletsToDestroy.containsKey(bullet.id);
 
             for (Player player : room.getPlayers()) {
-                if (bullet.origin == BulletOrigin.ENEMY && isBulletHittingWithTank(bullet.x, bullet.y, player.getX(), player.getY())) {
+                if (bullet.origin == BulletOrigin.ENEMY && isBulletHittingTank(bullet.x, bullet.y, player.getX(), player.getY())) {
                     hit = true;
                     player.setHealth(player.getHealth() - 1);
 
                     if (player.getHealth() <= 0) {
-                        // optional: mark player as destroyed, or respawn logic
                         room.broadcast(Map.of(
                                 "type", "player_destroyed",
                                 "playerNumber", player.getPlayerNumber()
@@ -99,17 +80,13 @@ public class BulletManager {
                         ));
                     }
 
-                    explosions.add(Map.of(
-                            "x", bullet.x,
-                            "y", bullet.y
-                    ));
-
-                    break; // stop checking after first hit
+                    explosions.add(Map.of("x", bullet.x, "y", bullet.y));
+                    break;
                 }
             }
 
             for (Enemy enemy : room.getEnemies()) {
-                if (bullet.origin == BulletOrigin.PLAYER && isBulletHittingWithTank(bullet.x, bullet.y, enemy.getX(), enemy.getY())) {
+                if (bullet.origin == BulletOrigin.PLAYER && isBulletHittingTank(bullet.x, bullet.y, enemy.getX(), enemy.getY())) {
                     hit = true;
                     enemy.setHealth(enemy.getHealth() - 1);
 
@@ -127,44 +104,39 @@ public class BulletManager {
                         ));
                     }
 
-                    explosions.add(Map.of(
-                            "x", bullet.x,
-                            "y", bullet.y
-                    ));
-
+                    explosions.add(Map.of("x", bullet.x, "y", bullet.y));
                     break;
                 }
             }
 
-            List<int[]> impactTiles = Collisions.getImpactTiles(bullet.x, bullet.y, bullet.dx, bullet.dy);
+            List<int[]> impactTiles = Collisions.getImpactTiles(bullet.x, bullet.y, bullet.direction);
             for (int[] tilePos : impactTiles) {
                 int row = tilePos[0];
                 int col = tilePos[1];
-                if (!room.isWithinMapBounds(row, col)) continue;
 
                 char tileChar = room.getTile(col, row);
                 if (TileHelper.canDestoryBullet(tileChar)) {
                     hit = true;
                     if (TileHelper.tileMapping(tileChar).equals("brick")) {
                         room.updateTile(col, row, '.');
-                        tileUpdates.add(Map.of("x", col, "y", row, "tile", ".")); // brick to empty
-                        explosions.add(Map.of("x", bullet.x, "y", bullet.y));
+                        tileUpdates.add(Map.of("x", col, "y", row, "tile", "."));
+                        int[] next = EnemyMovementHelper.getNextPosition(bullet.x, bullet.y, bullet.direction);
+                        int explosionX = next[0];
+                        int explosionY = next[1];
+                        if (MovementValidator.isWithinMapBounds(explosionX, explosionY)) {
+                            explosions.add(Map.of("x", explosionX, "y", explosionY));
+                        }
+
                     }
                 }
             }
 
             if (Collisions.isBulletCollidingWithBase(bullet.x, bullet.y)) {
                 hit = true;
-                room.broadcast(Map.of(
-                        "type", "base_destroyed"
-                ));
+                room.broadcast(Map.of("type", "base_destroyed"));
             }
 
-            if (hit) {
-                bullet.destroyed = true;
-            }
-
-            if (room.isOutOfBounds(bullet.x, bullet.y)) {
+            if (hit || MovementValidator.isOutOfBounds(bullet.x, bullet.y)) {
                 bullet.destroyed = true;
             }
 
@@ -172,6 +144,7 @@ public class BulletManager {
                 it.remove();
                 destroyedBullets.add(bullet.id);
             } else {
+                bullet.move();
                 moveUpdates.add(Map.of(
                         "bulletId", bullet.id,
                         "x", bullet.x,
@@ -207,6 +180,16 @@ public class BulletManager {
                     "type", "bullet_move_batch",
                     "bullets", moveUpdates
             ));
+        }
+
+        // Stop scheduler if no bullets remain
+        if (activeBullets.isEmpty()) {
+            synchronized (lock) {
+                if (bulletUpdateTask != null && !bulletUpdateTask.isCancelled()) {
+                    bulletUpdateTask.cancel(false);
+                    bulletUpdateTask = null;
+                }
+            }
         }
     }
 }

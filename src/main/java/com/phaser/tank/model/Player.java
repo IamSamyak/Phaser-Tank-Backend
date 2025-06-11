@@ -19,8 +19,13 @@ public class Player {
     public Player(WebSocketSession session, int playerNumber) {
         this.session = session;
         this.playerNumber = playerNumber;
-        this.x = 0;
-        this.y = 0;
+        if(playerNumber == 1){
+            this.x = 10;
+            this.y = 25;
+        }else{
+            this.x = 16;
+            this.y = 25;
+        }
         this.direction = Direction.UP;
     }
 

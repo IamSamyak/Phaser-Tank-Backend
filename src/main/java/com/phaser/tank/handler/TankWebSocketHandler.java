@@ -105,14 +105,10 @@ public class TankWebSocketHandler extends TextWebSocketHandler {
                 handlePlayerMove(roomId, player, msgMap);
                 return;
             } else if ("fire_bullet".equals(type)) {
-                String bulletId = (String) msgMap.get("bulletId");
-                int x = ((Number) msgMap.get("x")).intValue();
-                int y = ((Number) msgMap.get("y")).intValue();
-                Direction direction = getDirectionFromString((String) msgMap.get("direction"));
 
                 Room room = roomManager.getRoom(roomId);
-                if (room != null) {
-                    room.addBullet(bulletId, x, y, direction, BulletOrigin.PLAYER);
+                if (room != null && player != null) {
+                    room.addBullet(player.getX(), player.getY(), player.getDirection(), BulletOrigin.PLAYER);
                 }
             }
 
@@ -134,13 +130,11 @@ public class TankWebSocketHandler extends TextWebSocketHandler {
     private void handlePlayerMove(String roomId, Player player, Map<String, Object> msgMap) {
         if (player == null) return;
 
-        int x = ((Number) msgMap.get("x")).intValue();
-        int y = ((Number) msgMap.get("y")).intValue();
         Direction direction = getDirectionFromString((String) msgMap.get("direction"));
         Room room = roomManager.getRoom(roomId);
         if (room != null) {
             // Correct method call with session, not player number
-            room.handlePlayerMove(player.getSession(), x, y, direction);
+            room.handlePlayerMove(player.getSession(), direction);
         }
     }
 

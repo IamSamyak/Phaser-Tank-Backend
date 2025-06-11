@@ -1,19 +1,17 @@
 package com.phaser.tank.util;
 
 import com.phaser.tank.model.Bullet;
+import com.phaser.tank.model.Direction;
 
 import java.util.*;
 
-import static com.phaser.tank.util.GameConstants.TILE_SIZE;
-
 public class Collisions {
 
-
-    private static final int BULLET_SIZE = 32;           // or whatever your actual size is
-    private static final int TANK_SIZE = 64;
+    private static final int BULLET_SIZE = 1;  // In tile units now
+    private static final int TANK_SIZE = 2;    // 2x2 tile area
 
     /**
-     * Detects bullet-bullet collisions based on overlapping positions.
+     * Detects bullet-bullet collisions based on overlapping tile positions.
      *
      * @param bullets A collection of all active bullets
      * @return A map of bullet IDs to the bullets that collided
@@ -38,37 +36,31 @@ public class Collisions {
         return bulletsToDestroy;
     }
 
+    /**
+     * Check if a bullet is colliding with the base at tile (12, 25).
+     */
     public static boolean isBulletCollidingWithBase(int bulletX, int bulletY) {
-        int baseX = 12 * TILE_SIZE;
-        int baseY = 25 * TILE_SIZE;
-
-        return isBulletHittingWithTank(bulletX, bulletY, baseX, baseY);
+        int baseX = 12;
+        int baseY = 25;
+        return isBulletHittingTank(bulletX, bulletY, baseX, baseY);
     }
 
-    public static boolean isBulletHittingWithTank(int bulletX, int bulletY, int tankBottomRightX, int tankBottomRightY) {
+    /**
+     * Check if bullet (tileX, tileY) is hitting a tank occupying 2x2 tiles ending at (bottomRightX, bottomRightY).
+     */
+    public static boolean isBulletHittingTank(int bulletX, int bulletY, int bottomRightX, int bottomRightY) {
+        int topLeftX = bottomRightX - (TANK_SIZE - 1);
+        int topLeftY = bottomRightY - (TANK_SIZE - 1);
 
-        // Adjust tank boundaries based on bottom-right coordinates
-        int tankBottomLeftX = tankBottomRightX - 64;
-        int tankTopLeftX = tankBottomLeftX;
-        int tankTopLeftY = tankBottomRightY - 64;
-        int tankTopRightX = tankBottomRightX;
-
-        // Check if bullet is inside tank
-        boolean insideTank = bulletX >= tankTopLeftX && bulletX < tankTopRightX
-                && bulletY >= tankTopLeftY && bulletY < tankBottomRightY;
-
-        // Check if bullet is hitting any of the tank corners
-        boolean hittingCorner = (bulletX == tankTopLeftX && bulletY == tankTopLeftY) ||      // Top-left
-                (bulletX == tankTopRightX && bulletY == tankTopLeftY) ||  // Top-right
-                (bulletX == tankBottomLeftX && bulletY == tankBottomRightY) || // Bottom-left
-                (bulletX == tankBottomRightX && bulletY == tankBottomRightY); // Bottom-right
-
-        return insideTank || hittingCorner; // True if inside or hitting corner
+        return bulletX >= topLeftX && bulletX <= bottomRightX &&
+                bulletY >= topLeftY && bulletY <= bottomRightY;
     }
 
-    public static boolean isBulletCollidingWithTank(int bulletX, int bulletY,
-                                                    int tankX, int tankY) {
-
+    /**
+     * Check if bullet is colliding with a tank centered at (tankX, tankY) in tile units.
+     * Assumes both tank and bullet are centered.
+     */
+    public static boolean isBulletCollidingWithTank(int bulletX, int bulletY, int tankX, int tankY) {
         int bulletHalf = BULLET_SIZE / 2;
         int tankHalf = TANK_SIZE / 2;
 
@@ -88,29 +80,30 @@ public class Collisions {
                 bulletTop <= tankBottom;
     }
 
-
-    public static List<int[]> getImpactTiles(int x, int y, int dx, int dy) {
-        int tileX = x / TILE_SIZE;
-        int tileY = y / TILE_SIZE;
-
+    /**
+     * Given current tile (x, y) and direction (dx, dy), returns impacted tiles.
+     * Assumes bullet is 1x1 tile and moves by (dx, dy).
+     */
+    public static List<int[]> getImpactTiles(int x, int y, Direction direction) {
         List<int[]> impactTiles = new ArrayList<>();
+        int[][] deltas;
+        switch (direction) {
+            case UP -> deltas = new int[][]{{-1, -1}, {-1, 0}};       // top-left, top-center, top-right
+            case DOWN -> deltas = new int[][]{{1, -1}, {1, 0}};        // bottom-left, bottom-center, bottom-right
+            case LEFT -> deltas = new int[][]{{-1, -1}, {0, -1}};     // top-left, middle-left, bottom-left
+            case RIGHT -> deltas = new int[][]{{-1, 1}, {0, 1}};       // top-right, middle-right, bottom-right
+            default -> deltas = new int[][]{{0, 0}};
+        }
 
-        if (dy != 0) {
-            int colLeft = (x - TILE_SIZE / 2) / TILE_SIZE;
-            int colRight = (x + TILE_SIZE / 2 - 1) / TILE_SIZE;
-            int row = (y + dy) / TILE_SIZE;
-            impactTiles.add(new int[]{row, colLeft});
-            impactTiles.add(new int[]{row, colRight});
-        } else if (dx != 0) {
-            int rowTop = (y - TILE_SIZE / 2) / TILE_SIZE;
-            int rowBottom = (y + TILE_SIZE / 2 - 1) / TILE_SIZE;
-            int col = (x + dx) / TILE_SIZE;
-            impactTiles.add(new int[]{rowTop, col});
-            impactTiles.add(new int[]{rowBottom, col});
-        } else {
-            impactTiles.add(new int[]{tileY, tileX});
+        for (int[] delta : deltas) {
+            int row = y + delta[0];
+            int col = x + delta[1];
+            if (MovementValidator.isWithinMapBounds(row, col)) {
+                impactTiles.add(new int[]{row, col});
+            }
         }
 
         return impactTiles;
     }
+
 }

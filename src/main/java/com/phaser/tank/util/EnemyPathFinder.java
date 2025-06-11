@@ -3,7 +3,6 @@ package com.phaser.tank.util;
 import java.util.*;
 
 public class EnemyPathFinder {
-    private static final int TILE_SIZE = 32;
 
     public static Queue<int[]> findShortestPath(int startRow, int startCol, int targetRow, int targetCol, List<String> levelMap) {
         int rows = levelMap.size();
@@ -26,12 +25,8 @@ public class EnemyPathFinder {
             for (int[] dir : directions) {
                 int newRow = curRow + dir[0];
                 int newCol = curCol + dir[1];
-                int testX = newCol * TILE_SIZE;
-                int testY = newRow * TILE_SIZE;
-
-                if (!MovementValidator.isWithinMapBounds(newRow, newCol, levelMap)) continue;
                 if (visited[newRow][newCol]) continue;
-                if (!MovementValidator.canMove(testX, testY, levelMap)) continue;
+                if (!MovementValidator.canMove(newRow, newCol, levelMap)) continue;
 
                 visited[newRow][newCol] = true;
                 parent[newRow][newCol] = new int[]{curRow, curCol};

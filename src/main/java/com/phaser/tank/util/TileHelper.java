@@ -3,8 +3,6 @@ package com.phaser.tank.util;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.phaser.tank.util.GameConstants.TILE_SIZE;
-
 public class TileHelper {
 
     public static String tileMapping(char tileChar) {
@@ -42,13 +40,6 @@ public class TileHelper {
             }
         }
         return walkables;
-    }
-
-    public static double[] tileToPixelCenter(int row, int col) {
-        return new double[]{
-                (col + 0.5) * TILE_SIZE,
-                (row + 0.5) * TILE_SIZE
-        };
     }
 
     public static char getTile(int x, int y, List<String> levelMap) {

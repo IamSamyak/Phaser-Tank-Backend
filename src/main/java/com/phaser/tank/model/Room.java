@@ -5,6 +5,7 @@ import com.phaser.tank.manager.BonusManager;
 import com.phaser.tank.manager.BulletManager;
 import com.phaser.tank.manager.EnemyManager;
 import com.phaser.tank.manager.PlayerManager;
+import com.phaser.tank.util.EnemyMovementHelper;
 import com.phaser.tank.util.TileHelper;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
@@ -87,31 +88,28 @@ public class Room {
         return TileHelper.getTile(x, y, levelMap);
     }
 
-    public void addBullet(String bulletId, int x, int y, Direction direction, BulletOrigin origin) {
-        bulletManager.addBullet(bulletId, x, y, direction, origin);
+    public void addBullet(int x, int y, Direction direction, BulletOrigin origin) {
+        bulletManager.addBullet(x, y, direction, origin);
     }
 
     public void removeBullet(String bulletId) {
         bulletManager.removeBullet(bulletId);
     }
 
-    public boolean isOutOfBounds(double x, double y) {
-        return MovementValidator.isOutOfBounds(x, y, levelMap);
-    }
-
-    public boolean isWithinMapBounds(int row, int col) {
-        return MovementValidator.isWithinMapBounds(row, col, levelMap);
-    }
-
-    public void handlePlayerMove(WebSocketSession session, int newX, int newY, Direction direction) {
+    public void handlePlayerMove(WebSocketSession session, Direction direction) {
         Player player = playerManager.getPlayerBySession(session);
+        int[] next = EnemyMovementHelper.getNextPosition(player.getX(), player.getY(), direction);
+        int newX = next[0];
+        int newY = next[1];
         if (player == null || player.getHealth() <= 0) return;
 
-        player.setDirection(direction);
+
         if (MovementValidator.canMove(newX, newY, levelMap)) {
             player.setX(newX);
             player.setY(newY);
         }
+
+        player.setDirection(direction);
 
         // Check for bonus collision after position update
         bonusManager.checkBonusCollision(player);
@@ -125,7 +123,7 @@ public class Room {
         ));
     }
 
-    public void broadcast(Map<String, Object> msg) {
+    public synchronized void broadcast(Map<String, Object> msg) {
         try {
             String json = mapper.writeValueAsString(msg);
             for (Player player : playerManager.getPlayers()) {
