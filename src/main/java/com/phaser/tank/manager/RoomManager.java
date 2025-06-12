@@ -13,13 +13,13 @@ public class RoomManager {
     private final Map<String, Room> rooms = new ConcurrentHashMap<>();
     private final Map<WebSocketSession, String> sessionToRoom = new ConcurrentHashMap<>();
 
-    public String createRoom(WebSocketSession session) {
+    public String createRoom(WebSocketSession session, String level) {
         String roomId = generateRoomId();
         Room room = new Room(roomId);
         room.addPlayer(new Player(session, 1));
 
         // Load default level into the room
-        List<String> levelMap = loadLevelMap("levels/1.txt");
+        List<String>  levelMap = loadLevelMap("levels/" + level + ".txt");
         room.setLevelMap(levelMap);
 
         rooms.put(roomId, room);
@@ -50,11 +50,11 @@ public class RoomManager {
                 .orElse(null);
     }
 
-    public Player getPlayer(String roomId, int playerNumber) {
+    public Player getPlayer(String roomId, int playerId) {
         Room room = rooms.get(roomId);
         if (room == null) return null;
         return room.getPlayers().stream()
-                .filter(p -> p.getPlayerNumber() == playerNumber)
+                .filter(p -> p.getPlayerId() == playerId)
                 .findFirst()
                 .orElse(null);
     }

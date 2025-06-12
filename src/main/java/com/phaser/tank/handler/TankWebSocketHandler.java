@@ -23,14 +23,31 @@ public class TankWebSocketHandler extends TextWebSocketHandler {
         String roomId;
 
         if (uri.contains("/ws/create")) {
-            roomId = roomManager.createRoom(session);
+            // Default level is "1"
+            String level = "1";
+
+            // Extract level from query params
+            if (uri.contains("?")) {
+                String query = uri.substring(uri.indexOf("?") + 1);
+                String[] params = query.split("&");
+                for (String param : params) {
+                    String[] pair = param.split("=");
+                    if (pair.length == 2 && pair[0].equals("level")) {
+                        level = pair[1];
+                        break;
+                    }
+                }
+            }
+
+            // Pass level to room creation
+            roomId = roomManager.createRoom(session, level);
 
             Room room = roomManager.getRoom(roomId);
             List<String> levelMap = room.getLevelMap();
 
             session.sendMessage(new TextMessage(mapper.writeValueAsString(Map.of(
                     "type", "start",
-                    "playerNumber", 1,
+                    "playerId", 1,
                     "roomId", roomId,
                     "x", 10,
                     "y", 25,
@@ -47,7 +64,7 @@ public class TankWebSocketHandler extends TextWebSocketHandler {
 
                 session.sendMessage(new TextMessage(mapper.writeValueAsString(Map.of(
                         "type", "start",
-                        "playerNumber", 2,
+                        "playerId", 2,
                         "roomId", roomId,
                         "x", 16,
                         "y", 25,
@@ -63,7 +80,7 @@ public class TankWebSocketHandler extends TextWebSocketHandler {
                             "x", 16,
                             "y", 25,
                             "direction", Direction.UP,
-                            "playerNumber", 2
+                            "playerId", 2
                     ))));
                 }
 
@@ -75,7 +92,7 @@ public class TankWebSocketHandler extends TextWebSocketHandler {
                             "x", 10,
                             "y", 25,
                             "direction", Direction.UP,
-                            "playerNumber", 1
+                            "playerId", 1
                     ))));
                 }
             } else {
@@ -96,7 +113,7 @@ public class TankWebSocketHandler extends TextWebSocketHandler {
 
             Player player = roomManager.getPlayerBySession(session);
             if (player != null) {
-                msgMap.put("playerNumber", player.getPlayerNumber());
+                msgMap.put("playerId", player.getPlayerId());
             }
 
             String type = (String) msgMap.get("type");

@@ -3,7 +3,6 @@ package com.phaser.tank.manager;
 import com.phaser.tank.model.Room;
 import com.phaser.tank.model.Player;
 import com.phaser.tank.model.Bonus;
-import com.phaser.tank.util.TileHelper;
 import com.phaser.tank.util.GameConstants;
 
 import java.util.*;
@@ -31,8 +30,9 @@ public class BonusManager {
         Bonus bonus = new Bonus(bonusId, x, y, bonusType);
         activeBonuses.put(bonusId, bonus);
 
-        room.broadcast(Map.of(
-                "type", "bonus_spawn",
+        // Queue spawn event instead of broadcasting directly
+        room.queueBonusEvent(Map.of(
+                "event", "spawn",
                 "bonusId", bonus.getId(),
                 "x", bonus.getX(),
                 "y", bonus.getY(),
@@ -41,10 +41,13 @@ public class BonusManager {
 
         scheduler.schedule(() -> {
             activeBonuses.remove(bonusId);
-            room.broadcast(Map.of(
-                    "type", "bonus_remove",
+
+            // Queue remove event
+            room.queueBonusEvent(Map.of(
+                    "event", "remove",
                     "bonusId", bonusId
             ));
+
             scheduleNextBonus();
         }, 5, TimeUnit.SECONDS);
     }
@@ -63,9 +66,10 @@ public class BonusManager {
             if (px == bx && py == by) {
                 it.remove();
 
-                room.broadcast(Map.of(
-                        "type", "bonus_collected",
-                        "playerNumber", player.getPlayerNumber(),
+                // Queue collect event
+                room.queueBonusEvent(Map.of(
+                        "event", "collected",
+                        "playerId", player.getPlayerId(),
                         "bonusId", bonus.getId(),
                         "bonusType", bonus.getType()
                 ));

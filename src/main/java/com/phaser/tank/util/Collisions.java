@@ -7,9 +7,6 @@ import java.util.*;
 
 public class Collisions {
 
-    private static final int BULLET_SIZE = 1;  // In tile units now
-    private static final int TANK_SIZE = 2;    // 2x2 tile area
-
     /**
      * Detects bullet-bullet collisions based on overlapping tile positions.
      *
@@ -40,17 +37,15 @@ public class Collisions {
      * Check if a bullet is colliding with the base at tile (12, 25).
      */
     public static boolean isBulletCollidingWithBase(int bulletX, int bulletY) {
-        int baseX = 12;
-        int baseY = 25;
-        return isBulletHittingTank(bulletX, bulletY, baseX, baseY);
+        return isBulletHittingTank(bulletX, bulletY, GameConstants.BASE_X, GameConstants.BASE_Y);
     }
 
     /**
      * Check if bullet (tileX, tileY) is hitting a tank occupying 2x2 tiles ending at (bottomRightX, bottomRightY).
      */
     public static boolean isBulletHittingTank(int bulletX, int bulletY, int bottomRightX, int bottomRightY) {
-        int topLeftX = bottomRightX - (TANK_SIZE - 1);
-        int topLeftY = bottomRightY - (TANK_SIZE - 1);
+        int topLeftX = bottomRightX - (GameConstants.TANK_SIZE - 1);
+        int topLeftY = bottomRightY - (GameConstants.TANK_SIZE - 1);
 
         return bulletX >= topLeftX && bulletX <= bottomRightX &&
                 bulletY >= topLeftY && bulletY <= bottomRightY;
@@ -61,8 +56,8 @@ public class Collisions {
      * Assumes both tank and bullet are centered.
      */
     public static boolean isBulletCollidingWithTank(int bulletX, int bulletY, int tankX, int tankY) {
-        int bulletHalf = BULLET_SIZE / 2;
-        int tankHalf = TANK_SIZE / 2;
+        int bulletHalf = GameConstants.BULLET_SIZE / 2;
+        int tankHalf = GameConstants.TANK_SIZE / 2;
 
         int bulletLeft = bulletX - bulletHalf;
         int bulletRight = bulletX + bulletHalf;

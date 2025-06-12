@@ -1,10 +1,7 @@
 package com.phaser.tank.manager;
 
 import com.phaser.tank.model.*;
-import com.phaser.tank.util.Collisions;
-import com.phaser.tank.util.EnemyMovementHelper;
-import com.phaser.tank.util.MovementValidator;
-import com.phaser.tank.util.TileHelper;
+import com.phaser.tank.util.*;
 
 import java.util.*;
 import java.util.concurrent.*;
@@ -27,6 +24,16 @@ public class BulletManager {
         Bullet bullet = new Bullet(x, y, direction, origin);
         activeBullets.put(bullet.id, bullet);
 
+        // Queue bullet creation
+        room.queueBulletEvent(Map.of(
+                "action", "create",
+                "bulletId", bullet.id,
+                "x", x,
+                "y", y,
+                "direction", direction,
+                "origin", origin.name().toLowerCase()
+        ));
+
         synchronized (lock) {
             if (bulletUpdateTask == null || bulletUpdateTask.isCancelled() || bulletUpdateTask.isDone()) {
                 bulletUpdateTask = scheduler.scheduleAtFixedRate(this::updateBullets, 0, 50, TimeUnit.MILLISECONDS);
@@ -36,30 +43,23 @@ public class BulletManager {
 
     public void removeBullet(String bulletId) {
         activeBullets.remove(bulletId);
-        room.broadcast(Map.of(
-                "type", "bullet_destroy",
+        room.queueBulletEvent(Map.of(
+                "action", "destroy",
                 "bulletId", bulletId
         ));
     }
 
     private void updateBullets() {
-        List<Map<String, Object>> moveUpdates = new ArrayList<>();
-        List<String> destroyedBullets = new ArrayList<>();
-        List<Map<String, Object>> tileUpdates = new ArrayList<>();
-        List<Map<String, Object>> explosions = new ArrayList<>();
-
         Map<String, Bullet> bulletsToDestroy = Collisions.detectBulletCollisions(activeBullets.values());
 
         if (!bulletsToDestroy.isEmpty()) {
             Bullet firstBullet = bulletsToDestroy.values().iterator().next();
-            explosions.add(Map.of("x", firstBullet.x, "y", firstBullet.y));
+            room.queueExplosion(Map.of("x", firstBullet.x, "y", firstBullet.y));
         }
 
         for (Iterator<Map.Entry<String, Bullet>> it = activeBullets.entrySet().iterator(); it.hasNext(); ) {
             Map.Entry<String, Bullet> entry = it.next();
             Bullet bullet = entry.getValue();
-
-//            bullet.move();
             boolean hit = bulletsToDestroy.containsKey(bullet.id);
 
             for (Player player : room.getPlayers()) {
@@ -68,19 +68,19 @@ public class BulletManager {
                     player.setHealth(player.getHealth() - 1);
 
                     if (player.getHealth() <= 0) {
-                        room.broadcast(Map.of(
+                        room.queueEnemyEvent(Map.of(
                                 "type", "player_destroyed",
-                                "playerNumber", player.getPlayerNumber()
+                                "playerId", player.getPlayerId()
                         ));
                     } else {
-                        room.broadcast(Map.of(
+                        room.queueEnemyEvent(Map.of(
                                 "type", "player_hit",
-                                "playerNumber", player.getPlayerNumber(),
+                                "playerId", player.getPlayerId(),
                                 "health", player.getHealth()
                         ));
                     }
 
-                    explosions.add(Map.of("x", bullet.x, "y", bullet.y));
+                    room.queueExplosion(Map.of("x", bullet.x, "y", bullet.y));
                     break;
                 }
             }
@@ -88,23 +88,8 @@ public class BulletManager {
             for (Enemy enemy : room.getEnemies()) {
                 if (bullet.origin == BulletOrigin.PLAYER && isBulletHittingTank(bullet.x, bullet.y, enemy.getX(), enemy.getY())) {
                     hit = true;
-                    enemy.setHealth(enemy.getHealth() - 1);
-
-                    if (enemy.getHealth() <= 0) {
-                        room.removeEnemy(enemy);
-                        room.broadcast(Map.of(
-                                "type", "enemy_destroyed",
-                                "enemyId", enemy.getId()
-                        ));
-                    } else {
-                        room.broadcast(Map.of(
-                                "type", "enemy_hit",
-                                "enemyId", enemy.getId(),
-                                "health", enemy.getHealth()
-                        ));
-                    }
-
-                    explosions.add(Map.of("x", bullet.x, "y", bullet.y));
+                    room.damageEnemy(enemy);
+                    room.queueExplosion(Map.of("x", bullet.x, "y", bullet.y));
                     break;
                 }
             }
@@ -113,27 +98,32 @@ public class BulletManager {
             for (int[] tilePos : impactTiles) {
                 int row = tilePos[0];
                 int col = tilePos[1];
-
                 char tileChar = room.getTile(col, row);
+
                 if (TileHelper.canDestoryBullet(tileChar)) {
                     hit = true;
+
                     if (TileHelper.tileMapping(tileChar).equals("brick")) {
                         room.updateTile(col, row, '.');
-                        tileUpdates.add(Map.of("x", col, "y", row, "tile", "."));
+                        room.queueTileUpdate(Map.of("x", col, "y", row, "tile", "."));
+
                         int[] next = EnemyMovementHelper.getNextPosition(bullet.x, bullet.y, bullet.direction);
                         int explosionX = next[0];
                         int explosionY = next[1];
                         if (MovementValidator.isWithinMapBounds(explosionX, explosionY)) {
-                            explosions.add(Map.of("x", explosionX, "y", explosionY));
+                            room.queueExplosion(Map.of("x", explosionX, "y", explosionY));
                         }
-
                     }
                 }
             }
 
             if (Collisions.isBulletCollidingWithBase(bullet.x, bullet.y)) {
                 hit = true;
-                room.broadcast(Map.of("type", "base_destroyed"));
+                room.broadcast(Map.of(
+                        "type", "base_destroyed",
+                        "x", GameConstants.BASE_X,
+                        "y",GameConstants.BASE_Y
+                ));
             }
 
             if (hit || MovementValidator.isOutOfBounds(bullet.x, bullet.y)) {
@@ -142,10 +132,14 @@ public class BulletManager {
 
             if (bullet.destroyed) {
                 it.remove();
-                destroyedBullets.add(bullet.id);
+                room.queueBulletEvent(Map.of(
+                        "action", "destroy",
+                        "bulletId", bullet.id
+                ));
             } else {
                 bullet.move();
-                moveUpdates.add(Map.of(
+                room.queueBulletEvent(Map.of(
+                        "action", "move",
                         "bulletId", bullet.id,
                         "x", bullet.x,
                         "y", bullet.y,
@@ -154,35 +148,7 @@ public class BulletManager {
             }
         }
 
-        if (!tileUpdates.isEmpty()) {
-            room.broadcast(Map.of(
-                    "type", "tile_update_batch",
-                    "tiles", tileUpdates
-            ));
-        }
-
-        if (!explosions.isEmpty()) {
-            room.broadcast(Map.of(
-                    "type", "explosion_batch",
-                    "explosions", explosions
-            ));
-        }
-
-        if (!destroyedBullets.isEmpty()) {
-            room.broadcast(Map.of(
-                    "type", "bullet_destroy_batch",
-                    "bulletIds", destroyedBullets
-            ));
-        }
-
-        if (!moveUpdates.isEmpty()) {
-            room.broadcast(Map.of(
-                    "type", "bullet_move_batch",
-                    "bullets", moveUpdates
-            ));
-        }
-
-        // Stop scheduler if no bullets remain
+        // Stop scheduler if all bullets are cleared
         if (activeBullets.isEmpty()) {
             synchronized (lock) {
                 if (bulletUpdateTask != null && !bulletUpdateTask.isCancelled()) {

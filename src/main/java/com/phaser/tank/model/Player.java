@@ -2,9 +2,13 @@ package com.phaser.tank.model;
 
 import org.springframework.web.socket.WebSocketSession;
 
+import java.util.Random;
+
 public class Player {
+    private static final Random RANDOM = new Random();
+
     private final WebSocketSession session;
-    private final int playerNumber;
+    private final int playerId;
 
     private int x;
     private int y;
@@ -16,37 +20,41 @@ public class Player {
     private int bulletCount = 0;     // Number of bullets fired or active
     private int maxBullets = 1;      // Max allowed bullets on screen
 
-    public Player(WebSocketSession session, int playerNumber) {
+    public Player(WebSocketSession session, int playerId) {
         this.session = session;
-        this.playerNumber = playerNumber;
-        if(playerNumber == 1){
+        this.playerId = playerId;
+
+        assignInitialCoordinates(playerId);
+        this.direction = Direction.UP;
+    }
+
+    private void assignInitialCoordinates(int playerId) {
+        if (playerId == 1) {
             this.x = 10;
             this.y = 25;
-        }else{
+        } else if (playerId == 2) {
             this.x = 16;
             this.y = 25;
+        } else {
+            this.x = 25 + RANDOM.nextInt(5); // 25–29
+            this.y = 25 + RANDOM.nextInt(5); // 25–29
         }
-        this.direction = Direction.UP;
     }
 
     public WebSocketSession getSession() {
         return session;
     }
 
-    public int getPlayerNumber() {
-        return playerNumber;
+    public int getPlayerId() {
+        return playerId;
+    }
+
+    public int getId() {
+        return  playerId;
     }
 
     public int getX() {
         return x;
-    }
-
-    public Direction getDirection() {
-        return direction;
-    }
-
-    public void setDirection(Direction direction) {
-        this.direction = direction;
     }
 
     public void setX(int x) {
@@ -59,6 +67,14 @@ public class Player {
 
     public void setY(int y) {
         this.y = y;
+    }
+
+    public Direction getDirection() {
+        return direction;
+    }
+
+    public void setDirection(Direction direction) {
+        this.direction = direction;
     }
 
     public int getHealth() {
@@ -85,6 +101,14 @@ public class Player {
         this.maxBullets = maxBullets;
     }
 
+    public void damage(int amount) {
+        this.health -= amount;
+    }
+
+    public boolean isDestroyed() {
+        return this.health <= 0;
+    }
+
     public void applyBonus(String bonusType) {
         switch (bonusType) {
             case "helmet":
@@ -99,7 +123,6 @@ public class Player {
                 health += 2;
                 maxBullets++;
                 break;
-            // Add more effects if needed
             default:
                 break;
         }
@@ -108,7 +131,7 @@ public class Player {
     @Override
     public String toString() {
         return "PlayerInfo{" +
-                "playerNumber=" + playerNumber +
+                "playerId=" + playerId +
                 ", x=" + x +
                 ", y=" + y +
                 ", direction=" + direction +
