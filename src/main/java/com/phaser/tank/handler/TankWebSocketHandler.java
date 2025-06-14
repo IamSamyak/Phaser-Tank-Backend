@@ -23,10 +23,7 @@ public class TankWebSocketHandler extends TextWebSocketHandler {
         String roomId;
 
         if (uri.contains("/ws/create")) {
-            // Default level is "1"
             String level = "1";
-
-            // Extract level from query params
             if (uri.contains("?")) {
                 String query = uri.substring(uri.indexOf("?") + 1);
                 String[] params = query.split("&");
@@ -39,61 +36,57 @@ public class TankWebSocketHandler extends TextWebSocketHandler {
                 }
             }
 
-            // Pass level to room creation
             roomId = roomManager.createRoom(session, level);
-
-            Room room = roomManager.getRoom(roomId);
-            List<String> levelMap = room.getLevelMap();
+            Player player = roomManager.getPlayerBySession(session);
 
             session.sendMessage(new TextMessage(mapper.writeValueAsString(Map.of(
                     "type", "start",
-                    "playerId", 1,
+                    "playerId", player.getPlayerId(),
                     "roomId", roomId,
-                    "x", 10,
-                    "y", 25,
-                    "direction", Direction.UP,
-                    "levelMap", levelMap
+                    "x", player.getX(),
+                    "y", player.getY(),
+                    "direction", player.getDirection(),
+                    "levelMap", roomManager.getRoom(roomId).getLevelMap()
             ))));
         } else if (uri.contains("/ws/join/")) {
             roomId = uri.substring(uri.lastIndexOf('/') + 1);
             boolean success = roomManager.joinRoom(roomId, session);
 
             if (success) {
+                Player newPlayer = roomManager.getPlayerBySession(session);
                 Room room = roomManager.getRoom(roomId);
-                List<String> levelMap = room.getLevelMap();
 
+                // Send 'start' message to new player
                 session.sendMessage(new TextMessage(mapper.writeValueAsString(Map.of(
                         "type", "start",
-                        "playerId", 2,
+                        "playerId", newPlayer.getPlayerId(),
                         "roomId", roomId,
-                        "x", 16,
-                        "y", 25,
-                        "direction", Direction.UP,
-                        "levelMap", levelMap
+                        "x", newPlayer.getX(),
+                        "y", newPlayer.getY(),
+                        "direction", newPlayer.getDirection(),
+                        "levelMap", room.getLevelMap()
                 ))));
 
-                // Notify player 1 about player 2 joining
-                Player p1 = roomManager.getPlayer(roomId, 1);
-                if (p1 != null) {
-                    p1.getSession().sendMessage(new TextMessage(mapper.writeValueAsString(Map.of(
-                            "type", "spawn_other",
-                            "x", 16,
-                            "y", 25,
-                            "direction", Direction.UP,
-                            "playerId", 2
-                    ))));
-                }
+                // Notify all other players about the new one
+                for (Player other : room.getPlayers()) {
+                    if (!other.getSession().equals(session)) {
+                        other.getSession().sendMessage(new TextMessage(mapper.writeValueAsString(Map.of(
+                                "type", "spawn_other",
+                                "playerId", newPlayer.getPlayerId(),
+                                "x", newPlayer.getX(),
+                                "y", newPlayer.getY(),
+                                "direction", newPlayer.getDirection()
+                        ))));
 
-                // Notify player 2 about player 1 position
-                Player p2 = roomManager.getPlayer(roomId, 2);
-                if (p2 != null) {
-                    p2.getSession().sendMessage(new TextMessage(mapper.writeValueAsString(Map.of(
-                            "type", "spawn_other",
-                            "x", 10,
-                            "y", 25,
-                            "direction", Direction.UP,
-                            "playerId", 1
-                    ))));
+                        // Send existing players' positions to new player
+                        session.sendMessage(new TextMessage(mapper.writeValueAsString(Map.of(
+                                "type", "spawn_other",
+                                "playerId", other.getPlayerId(),
+                                "x", other.getX(),
+                                "y", other.getY(),
+                                "direction", other.getDirection()
+                        ))));
+                    }
                 }
             } else {
                 session.sendMessage(new TextMessage(mapper.writeValueAsString(Map.of(
