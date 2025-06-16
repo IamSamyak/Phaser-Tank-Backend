@@ -13,19 +13,20 @@ import org.springframework.web.socket.WebSocketSession;
 
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.stream.Collectors;
 
 public class Room {
 
     private final String roomId;
-
     private List<String> levelMap;
     private boolean spawningStarted = false;
+
     private final PlayerManager playerManager;
     private final BulletManager bulletManager;
     private final BonusManager bonusManager;
     private final EnemyManager enemyManager;
-    private final ObjectMapper mapper = new ObjectMapper();
 
+    private final ObjectMapper mapper = new ObjectMapper();
     private final ScheduledExecutorService tickExecutor = Executors.newSingleThreadScheduledExecutor();
 
     // Queues for batching
@@ -33,7 +34,8 @@ public class Room {
     private final List<Map<String, Object>> bonusQueue = Collections.synchronizedList(new ArrayList<>());
     private final List<Map<String, Object>> tileQueue = Collections.synchronizedList(new ArrayList<>());
     private final List<Map<String, Object>> explosionQueue = Collections.synchronizedList(new ArrayList<>());
-    private final List<Map<String, Object>> enemyQueue = Collections.synchronizedList(new ArrayList<>()); // ✅ Unified enemy events
+    private final List<Map<String, Object>> enemyQueue = Collections.synchronizedList(new ArrayList<>());
+    private final List<Map<String, Object>> playerQueue = Collections.synchronizedList(new ArrayList<>());
 
     public Room(String roomId) {
         this.roomId = roomId;
@@ -47,6 +49,14 @@ public class Room {
 
     public void addPlayer(Player player) {
         playerManager.addPlayer(player);
+
+        queuePlayerEvent(Map.of(
+                "action", "spawn",
+                "playerId", player.getPlayerId(),
+                "x", player.getX(),
+                "y", player.getY(),
+                "direction", player.getDirection()
+        ));
 
         if (playerManager.getPlayerCount() == 2 && !spawningStarted) {
             bonusManager.spawnBonus();
@@ -70,8 +80,20 @@ public class Room {
         return playerManager.getPlayers();
     }
 
+    public Map<Integer, Player> getPlayerMap() {
+        return getPlayers().stream().collect(Collectors.toMap(Player::getId, p -> p));
+    }
+
+    public List<Enemy> getEnemies() {
+        return new ArrayList<>(enemyManager.getEnemies().values());
+    }
+
     public void damagePlayer(Player player) {
-        playerManager.damagePlayer(player.getId(),1);
+        playerManager.damagePlayer(player.getId(), 1);
+    }
+
+    public void damageEnemy(Enemy enemy) {
+        enemyManager.damageEnemy(enemy.getId(), 1);
     }
 
     public String getRoomId() {
@@ -102,14 +124,6 @@ public class Room {
         bulletManager.removeBullet(bulletId);
     }
 
-    public List<Enemy> getEnemies() {
-        return new ArrayList<>(enemyManager.getEnemies().values());
-    }
-
-    public void damageEnemy(Enemy enemy) {
-        enemyManager.damageEnemy(enemy.getId(),1);
-    }
-
     public void handlePlayerMove(WebSocketSession session, Direction direction) {
         Player player = playerManager.getPlayerBySession(session);
         if (player == null || player.getHealth() <= 0) return;
@@ -117,18 +131,30 @@ public class Room {
         int[] next = EnemyMovementHelper.getNextPosition(player.getX(), player.getY(), direction);
         int newX = next[0];
         int newY = next[1];
-
-        if (MovementValidator.canMove(newX, newY, levelMap)) {
-            player.setX(newX);
-            player.setY(newY);
-        }
-
         player.setDirection(direction);
+        // Ensure the tile is walkable
+        if (!MovementValidator.canMove(newX, newY, levelMap)) return;
+
+        // Prevent collision with enemies and other players
+        boolean canOccupy = MovementValidator.canOccupy(
+                newX, newY,
+                null, // playerId is handled separately
+                player.getPlayerId(),
+                enemyManager.getEnemies(),
+                getPlayerMap(),
+                Set.of() // reservedTiles not used for player input
+        );
+
+        if (!canOccupy) return;
+
+        // Apply movement
+        player.setX(newX);
+        player.setY(newY);
 
         bonusManager.checkBonusCollision(player);
 
-        broadcast(Map.of(
-                "type", "player_move",
+        queuePlayerEvent(Map.of(
+                "action", "move",
                 "playerId", player.getPlayerId(),
                 "x", player.getX(),
                 "y", player.getY(),
@@ -153,9 +179,12 @@ public class Room {
         explosionQueue.add(explosion);
     }
 
-    // ✅ Unified enemy event queuing
     public void queueEnemyEvent(Map<String, Object> event) {
         enemyQueue.add(event);
+    }
+
+    public void queuePlayerEvent(Map<String, Object> event) {
+        playerQueue.add(event);
     }
 
     // ===== Tick Loop =====
@@ -171,7 +200,8 @@ public class Room {
         flushQueue(tick, "bonuses", bonusQueue);
         flushQueue(tick, "tiles", tileQueue);
         flushQueue(tick, "explosions", explosionQueue);
-        flushQueue(tick, "enemyEvents", enemyQueue); // ✅ Unified queue flush
+        flushQueue(tick, "enemyEvents", enemyQueue);
+        flushQueue(tick, "playerEvents", playerQueue);
 
         if (tick.size() > 1) {
             broadcast(tick);
@@ -194,7 +224,9 @@ public class Room {
             for (Player player : playerManager.getPlayers()) {
                 WebSocketSession session = player.getSession();
                 if (session.isOpen()) {
-                    session.sendMessage(new TextMessage(json));
+                    synchronized (session) { // ✅ Ensure only one message is sent at a time per session
+                        session.sendMessage(new TextMessage(json));
+                    }
                 }
             }
         } catch (Exception e) {

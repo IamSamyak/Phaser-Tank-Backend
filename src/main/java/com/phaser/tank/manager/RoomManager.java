@@ -29,8 +29,10 @@ public class RoomManager {
 
     public boolean joinRoom(String roomId, WebSocketSession session) {
         Room room = rooms.get(roomId);
-        if (room != null && room.playerCount() < 2) {
-            room.addPlayer(new Player(session, 2));
+        if (room != null && room.playerCount() < 4) {
+            int playerId = room.playerCount() + 1;
+            Player newPlayer = new Player(session, playerId);
+            room.addPlayer(newPlayer);
             sessionToRoom.put(session, roomId);
             return true;
         }

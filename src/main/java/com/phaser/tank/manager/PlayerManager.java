@@ -59,8 +59,8 @@ public class PlayerManager {
 
         if (player.isDestroyed()) {
             removePlayerById(id);
-            room.broadcast(Map.of(
-                    "type", "player_destroy",
+            room.queuePlayerEvent(Map.of(
+                    "action", "destroy",
                     "playerId", player.getPlayerId(),
                     "x", player.getX(),
                     "y", player.getY()

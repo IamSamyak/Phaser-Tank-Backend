@@ -67,18 +67,7 @@ public class BulletManager {
                     hit = true;
                     player.setHealth(player.getHealth() - 1);
 
-                    if (player.getHealth() <= 0) {
-                        room.queueEnemyEvent(Map.of(
-                                "type", "player_destroyed",
-                                "playerId", player.getPlayerId()
-                        ));
-                    } else {
-                        room.queueEnemyEvent(Map.of(
-                                "type", "player_hit",
-                                "playerId", player.getPlayerId(),
-                                "health", player.getHealth()
-                        ));
-                    }
+                    room.damagePlayer(player);
 
                     room.queueExplosion(Map.of("x", bullet.x, "y", bullet.y));
                     break;

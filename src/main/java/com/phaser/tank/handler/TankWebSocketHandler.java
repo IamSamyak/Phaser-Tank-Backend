@@ -9,8 +9,7 @@ import com.phaser.tank.manager.RoomManager;
 import org.springframework.web.socket.*;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class TankWebSocketHandler extends TextWebSocketHandler {
 
@@ -36,18 +35,32 @@ public class TankWebSocketHandler extends TextWebSocketHandler {
                 }
             }
 
+            // Create room and get player
             roomId = roomManager.createRoom(session, level);
             Player player = roomManager.getPlayerBySession(session);
+            Room room = roomManager.getRoom(roomId);
 
+            // Prepare playerEvents array including the creator himself
+            List<Map<String, Object>> playerEvents = new ArrayList<>();
+            for (Player p : room.getPlayers()) {
+                playerEvents.add(Map.of(
+                        "action", "spawn",
+                        "playerId", p.getPlayerId(),
+                        "x", p.getX(),
+                        "y", p.getY(),
+                        "direction", p.getDirection()
+                ));
+            }
+
+            // Send start message with playerEvents to creator
             session.sendMessage(new TextMessage(mapper.writeValueAsString(Map.of(
                     "type", "start",
                     "playerId", player.getPlayerId(),
                     "roomId", roomId,
-                    "x", player.getX(),
-                    "y", player.getY(),
-                    "direction", player.getDirection(),
-                    "levelMap", roomManager.getRoom(roomId).getLevelMap()
+                    "levelMap", room.getLevelMap(),
+                    "playerEvents", playerEvents
             ))));
+
         } else if (uri.contains("/ws/join/")) {
             roomId = uri.substring(uri.lastIndexOf('/') + 1);
             boolean success = roomManager.joinRoom(roomId, session);
@@ -56,35 +69,37 @@ public class TankWebSocketHandler extends TextWebSocketHandler {
                 Player newPlayer = roomManager.getPlayerBySession(session);
                 Room room = roomManager.getRoom(roomId);
 
-                // Send 'start' message to new player
+                List<Map<String, Object>> playerEvents = new ArrayList<>();
+
+                // Build playerEvents for all players (including the new player)
+                for (Player p : room.getPlayers()) {
+                    playerEvents.add(Map.of(
+                            "action", "spawn",
+                            "playerId", p.getPlayerId(),
+                            "x", p.getX(),
+                            "y", p.getY(),
+                            "direction", p.getDirection()
+                    ));
+                }
+
+                // Send to new player
                 session.sendMessage(new TextMessage(mapper.writeValueAsString(Map.of(
                         "type", "start",
                         "playerId", newPlayer.getPlayerId(),
                         "roomId", roomId,
-                        "x", newPlayer.getX(),
-                        "y", newPlayer.getY(),
-                        "direction", newPlayer.getDirection(),
-                        "levelMap", room.getLevelMap()
+                        "levelMap", room.getLevelMap(),
+                        "playerEvents", playerEvents
                 ))));
 
-                // Notify all other players about the new one
+                // Notify existing players about the new player
                 for (Player other : room.getPlayers()) {
                     if (!other.getSession().equals(session)) {
                         other.getSession().sendMessage(new TextMessage(mapper.writeValueAsString(Map.of(
-                                "type", "spawn_other",
+                                "type", "spawn_new_player",
                                 "playerId", newPlayer.getPlayerId(),
                                 "x", newPlayer.getX(),
                                 "y", newPlayer.getY(),
                                 "direction", newPlayer.getDirection()
-                        ))));
-
-                        // Send existing players' positions to new player
-                        session.sendMessage(new TextMessage(mapper.writeValueAsString(Map.of(
-                                "type", "spawn_other",
-                                "playerId", other.getPlayerId(),
-                                "x", other.getX(),
-                                "y", other.getY(),
-                                "direction", other.getDirection()
                         ))));
                     }
                 }
@@ -115,14 +130,13 @@ public class TankWebSocketHandler extends TextWebSocketHandler {
                 handlePlayerMove(roomId, player, msgMap);
                 return;
             } else if ("fire_bullet".equals(type)) {
-
                 Room room = roomManager.getRoom(roomId);
                 if (room != null && player != null) {
                     room.addBullet(player.getX(), player.getY(), player.getDirection(), BulletOrigin.PLAYER);
                 }
             }
 
-            // Broadcast to other players
+            // Broadcast to others
             String broadcastMsg = mapper.writeValueAsString(msgMap);
             roomManager.broadcast(roomId, new TextMessage(broadcastMsg), session);
         }
@@ -130,12 +144,11 @@ public class TankWebSocketHandler extends TextWebSocketHandler {
 
     private Direction getDirectionFromString(String directionStr) {
         try {
-            return Direction.valueOf(directionStr.toUpperCase()); // Convert string to enum safely
+            return Direction.valueOf(directionStr.toUpperCase());
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Invalid direction: " + directionStr);
         }
     }
-
 
     private void handlePlayerMove(String roomId, Player player, Map<String, Object> msgMap) {
         if (player == null) return;
@@ -143,7 +156,6 @@ public class TankWebSocketHandler extends TextWebSocketHandler {
         Direction direction = getDirectionFromString((String) msgMap.get("direction"));
         Room room = roomManager.getRoom(roomId);
         if (room != null) {
-            // Correct method call with session, not player number
             room.handlePlayerMove(player.getSession(), direction);
         }
     }

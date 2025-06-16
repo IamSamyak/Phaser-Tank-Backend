@@ -37,12 +37,21 @@ public class EnemyManager {
 
             String enemyId = UUID.randomUUID().toString();
             Enemy enemy = EnemySpawner.spawnEnemy(enemyId);
+
+            // Prevent spawn overlap
+            if (!MovementValidator.canOccupy(
+                    enemy.getX(),
+                    enemy.getY(),
+                    enemyId,
+                    null,
+                    enemies,
+                    room.getPlayerMap(),
+                    Set.of()
+            )) return;
+
             enemies.put(enemyId, enemy);
 
-            int spawnRow = enemy.getY();
-            int spawnCol = enemy.getX();
-
-            // Optional special path-following enemy
+            // Optional: special path-following enemy
             /*
             if (enemies.size() == 1) {
                 int targetRow = 24;
@@ -52,8 +61,6 @@ public class EnemyManager {
                 enemy.setSpecial(true);
             }
             */
-
-            System.out.println("[EnemyManager] Spawned enemy " + enemyId + " at (" + enemy.getX() + "," + enemy.getY() + ")");
 
             room.queueEnemyEvent(Map.of(
                     "action", "spawn",
@@ -66,7 +73,6 @@ public class EnemyManager {
             if (!movementScheduled) {
                 scheduler.scheduleAtFixedRate(this::moveEnemies, 1, 1, TimeUnit.SECONDS);
                 movementScheduled = true;
-                System.out.println("[EnemyManager] Started enemy movement scheduler.");
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -77,57 +83,77 @@ public class EnemyManager {
         try {
             List<Enemy> enemiesToFire = new ArrayList<>();
             List<String> levelMap = room.getLevelMap();
+            Set<String> reservedTiles = new HashSet<>();
 
             for (Enemy enemy : enemies.values()) {
                 boolean moved = false;
+                int currentX = enemy.getX();
+                int currentY = enemy.getY();
 
                 if (enemy.isSpecial()) {
                     Queue<int[]> path = enemy.getPath();
                     if (path != null && !path.isEmpty()) {
-                        int[] nextTile = path.poll();
+                        int[] nextTile = path.peek(); // look ahead
                         int nextCol = nextTile[1];
                         int nextRow = nextTile[0];
 
-                        Direction dir = EnemyMovementHelper.getDirection(enemy.getX(), enemy.getY(), nextCol, nextRow);
-                        enemy.setX(nextCol);
-                        enemy.setY(nextRow);
-                        enemy.setDirection(dir);
-                        moved = true;
+                        if (MovementValidator.canMove(nextCol, nextRow, levelMap) &&
+                                MovementValidator.canOccupy(nextCol, nextRow, enemy.getId(), null, enemies, room.getPlayerMap(), reservedTiles)) {
+
+                            path.poll(); // actually take step
+                            Direction dir = EnemyMovementHelper.getDirection(currentX, currentY, nextCol, nextRow);
+                            enemy.setX(nextCol);
+                            enemy.setY(nextRow);
+                            enemy.setDirection(dir);
+                            moved = true;
+                            reserveTiles(reservedTiles, nextCol, nextRow);
+                        }
                     }
                 } else if (!enemy.hasMoved()) {
                     List<Direction> directionsToCheck = List.of(Direction.DOWN, Direction.LEFT, Direction.RIGHT);
-                    Direction chosenDir = EnemyMovementHelper.chooseRandomValidDirection(directionsToCheck, enemy.getX(), enemy.getY(), levelMap);
+                    Direction chosenDir = EnemyMovementHelper.chooseRandomValidDirection(directionsToCheck, currentX, currentY, levelMap);
 
                     if (chosenDir != null) {
-                        int[] next = EnemyMovementHelper.getNextPosition(enemy.getX(), enemy.getY(), chosenDir);
-                        Direction actualDir = EnemyMovementHelper.getDirection(enemy.getX(), enemy.getY(), next[0], next[1]);
+                        int[] next = EnemyMovementHelper.getNextPosition(currentX, currentY, chosenDir);
 
-                        enemy.setDirection(actualDir);
-                        enemy.setHasMoved(true);
-                        enemy.setX(next[0]);
-                        enemy.setY(next[1]);
-                        moved = true;
-                    } else {
+                        if (MovementValidator.canOccupy(next[0], next[1], enemy.getId(), null, enemies, room.getPlayerMap(), reservedTiles)) {
+                            Direction actualDir = EnemyMovementHelper.getDirection(currentX, currentY, next[0], next[1]);
+
+                            enemy.setDirection(actualDir);
+                            enemy.setHasMoved(true);
+                            enemy.setX(next[0]);
+                            enemy.setY(next[1]);
+                            moved = true;
+                            reserveTiles(reservedTiles, next[0], next[1]);
+                        }
+                    }
+
+                    if (!moved) {
+                        // Couldn't move, just set fallback dir
                         Direction fallbackDir = directionsToCheck.get(random.nextInt(directionsToCheck.size()));
                         enemy.setDirection(fallbackDir);
                         enemy.setHasMoved(true);
                     }
                 } else {
-                    int[] next = EnemyMovementHelper.getNextPosition(enemy.getX(), enemy.getY(), enemy.getDirection());
-                    boolean canMove = MovementValidator.canMove(next[0], next[1], levelMap);
+                    int[] next = EnemyMovementHelper.getNextPosition(currentX, currentY, enemy.getDirection());
+                    boolean canMove = MovementValidator.canMove(next[0], next[1], levelMap) &&
+                            MovementValidator.canOccupy(next[0], next[1], enemy.getId(), null, enemies, room.getPlayerMap(), reservedTiles);
 
                     if (canMove) {
                         enemy.setX(next[0]);
                         enemy.setY(next[1]);
                         moved = true;
+                        reserveTiles(reservedTiles, next[0], next[1]);
                     } else {
                         List<Direction> directions = new ArrayList<>(List.of(Direction.values()));
                         Collections.shuffle(directions);
 
                         for (Direction dir : directions) {
                             if (dir == enemy.getDirection()) continue;
-                            int[] tryPos = EnemyMovementHelper.getNextPosition(enemy.getX(), enemy.getY(), dir);
-                            if (MovementValidator.canMove(tryPos[0], tryPos[1], levelMap)) {
+
+                            int[] tryPos = EnemyMovementHelper.getNextPosition(currentX, currentY, dir);
+                            if (MovementValidator.canMove(tryPos[0], tryPos[1], levelMap) &&
+                                    MovementValidator.canOccupy(tryPos[0], tryPos[1], enemy.getId(), null, enemies, room.getPlayerMap(), reservedTiles)) {
                                 enemy.setDirection(dir);
                                 break;
                             }
@@ -158,8 +184,17 @@ public class EnemyManager {
                         BulletOrigin.ENEMY
                 );
             }
+
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    private void reserveTiles(Set<String> reserved, int x, int y) {
+        for (int dx = 0; dx <= 1; dx++) {
+            for (int dy = 0; dy <= 1; dy++) {
+                reserved.add((x + dx) + "," + (y + dy));
+            }
         }
     }
 
