@@ -63,7 +63,7 @@ public class BulletManager {
             boolean hit = bulletsToDestroy.containsKey(bullet.id);
 
             for (Player player : room.getPlayers()) {
-                if (bullet.origin == BulletOrigin.ENEMY && isBulletHittingTank(bullet.x, bullet.y, player.getX(), player.getY())) {
+                if (bullet.origin == BulletOrigin.ENEMY && player.isActive() && isBulletHittingTank(bullet.x, bullet.y, player.getX(), player.getY())) {
                     hit = true;
                     player.setHealth(player.getHealth() - 1);
 

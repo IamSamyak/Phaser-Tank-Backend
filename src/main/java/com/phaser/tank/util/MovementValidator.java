@@ -48,22 +48,24 @@ public class MovementValidator {
             Map<Integer, Player> players,
             Set<String> reservedTiles
     ) {
-        // Check enemies
+        // Check enemy overlap (excluding self)
         for (Enemy enemy : enemies.values()) {
             if (selfEnemyId != null && selfEnemyId.equals(enemy.getId())) continue;
             if (rectanglesOverlap(x, y, enemy.getX(), enemy.getY())) return false;
         }
 
-        // Check players
+        // Check player overlap (excluding self)
         for (Map.Entry<Integer, Player> entry : players.entrySet()) {
             Integer playerId = entry.getKey();
             if (selfPlayerId != null && selfPlayerId.equals(playerId)) continue;
 
             Player player = entry.getValue();
+            if (!player.isActive()) continue;
+
             if (rectanglesOverlap(x, y, player.getX(), player.getY())) return false;
         }
 
-        // Check reserved tiles
+        // Check reserved tiles (2x2 tiles starting at (x, y))
         for (int dx = 0; dx <= 1; dx++) {
             for (int dy = 0; dy <= 1; dy++) {
                 String key = (x + dx) + "," + (y + dy);

@@ -26,8 +26,12 @@ public class PlayerManager {
     }
 
     public void removePlayerById(int playerId) {
-        players.removeIf(p -> p.getPlayerId() == playerId);
+        Player player = getPlayerById(playerId);
+        if (player != null) {
+            player.setActive(false);
+        }
     }
+
 
     public int getPlayerCount() {
         return players.size();

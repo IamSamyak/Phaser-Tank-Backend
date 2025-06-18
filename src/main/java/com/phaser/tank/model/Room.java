@@ -13,6 +13,7 @@ import org.springframework.web.socket.WebSocketSession;
 
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 public class Room {
@@ -28,7 +29,7 @@ public class Room {
 
     private final ObjectMapper mapper = new ObjectMapper();
     private final ScheduledExecutorService tickExecutor = Executors.newSingleThreadScheduledExecutor();
-
+    private final Map<WebSocketSession, ReentrantLock> sessionLocks = new ConcurrentHashMap<>();
     // Queues for batching
     private final List<Map<String, Object>> bulletQueue = Collections.synchronizedList(new ArrayList<>());
     private final List<Map<String, Object>> bonusQueue = Collections.synchronizedList(new ArrayList<>());
@@ -67,6 +68,7 @@ public class Room {
 
     public void removePlayer(WebSocketSession session) {
         playerManager.removePlayer(session);
+        sessionLocks.remove(session);
         if (playerManager.getPlayerCount() == 0) {
             enemyManager.shutdown();
         }
@@ -218,14 +220,31 @@ public class Room {
     }
 
     // ===== WebSocket Broadcast =====
-    public synchronized void broadcast(Map<String, Object> msg) {
+    public void broadcast(Map<String, Object> msg) {
         try {
             String json = mapper.writeValueAsString(msg);
             for (Player player : playerManager.getPlayers()) {
                 WebSocketSession session = player.getSession();
+
                 if (session.isOpen()) {
-                    synchronized (session) { // ✅ Ensure only one message is sent at a time per session
-                        session.sendMessage(new TextMessage(json));
+                    // Get or create the lock for this session
+                    ReentrantLock lock = sessionLocks.computeIfAbsent(session, s -> new ReentrantLock());
+
+                    // Lock to ensure no concurrent send
+                    if (lock.tryLock()) {
+                        try {
+                            session.sendMessage(new TextMessage(json));
+                        } catch (IllegalStateException e) {
+                            System.err.println("WebSocket in bad state: " + e.getMessage());
+                            // Optionally mark this session as broken
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        } finally {
+                            lock.unlock();
+                        }
+                    } else {
+                        // Skipped sending due to locked session, can log or queue instead
+                        System.err.println("Skipped sending to locked session");
                     }
                 }
             }
