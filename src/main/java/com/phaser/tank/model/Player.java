@@ -31,8 +31,8 @@ public class Player {
     private static final Object[][] STATIC_SPAWN_DATA = {
             {10, 25, Direction.UP},    // Player 1
             {16, 25, Direction.UP},    // Player 2
-            {13, 1, Direction.DOWN},   // Player 3
-            {13, 1, Direction.DOWN}    // Player 4
+            {10, 1, Direction.DOWN},   // Player 3
+            {16, 1, Direction.DOWN}    // Player 4
     };
 
     private void assignInitialState(int playerId) {
